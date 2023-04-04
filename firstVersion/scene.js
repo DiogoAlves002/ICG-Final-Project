@@ -16,6 +16,8 @@ const sceneElements = {
     control: null,
     renderer: null,
     tiles : null,
+    ground : null,
+    groundColor : null,
 };
 
 
@@ -91,23 +93,40 @@ function load3DObjects(sceneGraph) {
     // ************************** //
     // Create a ground plane
     // ************************** //
-    const planeSize = new THREE.Vector2(6, 6);
-    const subdivisions = 8;
 
-    // create teh array to store the tiles
+    // create the array to store the ground colors
+    const ground = [
+        [0, 0, 0, 0, 0, 0],
+        [1, 1, 0, 0, 0, 0],
+        [0, 1, 1, 0, 1, 1],
+        [0, 0, 1, 0, 1, 0],
+        [0, 0, 1, 1, 1, 0],
+        [0, 0, 0, 0, 0, 0],
+      ];
+    sceneElements.ground = ground;
+
+    const planeSize = new THREE.Vector2(6, 6);
+    const subdivisions = ground.length;
+    const tileSize = planeSize.x / subdivisions;
+
+    // create the array to store the tiles
     const tiles = [];
     sceneElements.tiles = tiles;
+
+    sceneElements.groundColor = {};
+
+    
 
     const planeGeometry = new THREE.PlaneGeometry(planeSize.x, planeSize.y, subdivisions - 1, subdivisions - 1);
     const planeMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(200, 200, 200)', side: THREE.DoubleSide });
     const planeObject = new THREE.Mesh(planeGeometry, planeMaterial);
 
-    for (let i = 0; i < subdivisions; i++) {
+    for (let row = 0; row < subdivisions; row++) {
 
         // create the vertical lines that separate the tiles
         const verticalLineGeometry = new THREE.BufferGeometry().setFromPoints([ // connects two points
-            new THREE.Vector3(-planeSize.x / 2 + i * (planeSize.x / subdivisions), planeSize.y / 2, -0.02), // first point
-            new THREE.Vector3(-planeSize.x / 2 + i * (planeSize.x / subdivisions), -planeSize.y / 2, -0.02) // second point
+            new THREE.Vector3(-planeSize.x / 2 + row * tileSize, planeSize.y / 2, -0.02), // first point
+            new THREE.Vector3(-planeSize.x / 2 + row * tileSize, -planeSize.y / 2, -0.02) // second point
         ]);
         const verticalLineMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
         const verticalLine = new THREE.Line(verticalLineGeometry, verticalLineMaterial);
@@ -115,30 +134,41 @@ function load3DObjects(sceneGraph) {
 
         // create the horizontal lines that separate the tiles
         const horizontalLineGeometry = new THREE.BufferGeometry().setFromPoints([ // connects two points
-            new THREE.Vector3(-planeSize.x / 2, -planeSize.y / 2 + i * (planeSize.y / subdivisions), -0.02), // first point
-            new THREE.Vector3(planeSize.x / 2, -planeSize.y / 2 + i * (planeSize.y / subdivisions), -0.02) // second point
+            new THREE.Vector3(-planeSize.x / 2, -planeSize.y / 2 + row * (planeSize.y / subdivisions), -0.02), // first point
+            new THREE.Vector3(planeSize.x / 2, -planeSize.y / 2 + row * (planeSize.y / subdivisions), -0.02) // second point
         ]);
         const horizontalLineMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
         const horizontalLine = new THREE.Line(horizontalLineGeometry, horizontalLineMaterial);
         planeObject.add(horizontalLine);
 
         // create the tiles and add them to the tiles array
-        for (let j = 0; j < subdivisions; j++) {
-            const squareGeometry = new THREE.PlaneGeometry(planeSize.x / subdivisions, planeSize.y / subdivisions);
-            const squareMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(255, 255, 255)', side: THREE.DoubleSide });
-            const single_tile = new THREE.Mesh(squareGeometry, squareMaterial);
-            single_tile.position.x = -planeSize.x / 2 + j * (planeSize.x / subdivisions) + (planeSize.x / subdivisions) / 2;
-            single_tile.position.y = -planeSize.y / 2 + i * (planeSize.y / subdivisions) + (planeSize.y / subdivisions) / 2;
+        for (let col = 0; col < subdivisions; col++) {
+            const tileGeometry = new THREE.PlaneGeometry(tileSize, planeSize.y / subdivisions);
+            const tileMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(255, 255, 255)', side: THREE.DoubleSide });
+            const single_tile = new THREE.Mesh(tileGeometry, tileMaterial);
+            single_tile.position.x = -planeSize.x / 2 + col * tileSize + tileSize / 2;
+            single_tile.position.y = -planeSize.y / 2 + row * tileSize + tileSize / 2;
             single_tile.position.z = -0.01;
+
+            if (sceneElements.ground[row][col] === 0 ){
+                tileMaterial.color.set(0x00ff00); // set to green
+                sceneElements.groundColor[single_tile.uuid]= 0x00ff00;
+            } else {
+                tileMaterial.color.set(0xffff00); // set to yellow
+                sceneElements.groundColor[single_tile.uuid]= 0xffff00;
+            }
+
+            /* single_tile.castShadow = true;
+            single_tile.receiveShadow = true; */
+            /* if (sceneElements.ground[row][col] === 0) {
+                tileMaterial.color.set(0x00ff00); // set to green
+              } else {
+                tileMaterial.color.set(0xffff00); // set to yellow
+              } */
             tiles.push(single_tile);
             planeObject.add(single_tile);
         }
     }
-    tiles.forEach((tile, index) => {
-        tile.addEventListener('click', () => {
-        console.log(`Tile ${index} was clicked at position (${tile.position.x}, ${tile.position.y})`);
-        });
-    });
 
     
     sceneGraph.add(planeObject);
@@ -238,6 +268,8 @@ function load3DObjects(sceneGraph) {
 // ************************** //
 const pointer = new THREE.Vector2();
 const raycaster = new THREE.Raycaster();
+let hoveredTile = null; // keep track of the currently hovered tile
+let tileColor = null;
 
 const onMouseMove = (event) => {
     // calculate pointer position in normalized device coordinates
@@ -259,7 +291,21 @@ const onMouseMove = (event) => {
 
     // change color of the closest object intersecting the raycaster
     if (intersects.length > 0) {
-    intersects[0].object.material.color.set(0xff0000);
+        const tile = intersects[0].object;
+        if (tile !== hoveredTile) {
+            if (hoveredTile) {
+                tileColor = sceneElements.groundColor[hoveredTile.uuid];
+                hoveredTile.material.color.set(tileColor);
+            }
+            hoveredTile = tile;
+            hoveredTile.material.color.set(0xff0000);
+        }
+        } else {
+        if (hoveredTile) {
+            tileColor = sceneElements.groundColor[hoveredTile.uuid];
+            hoveredTile.material.color.set(tileColor);
+            hoveredTile = null;
+        }
     }
 
 };
