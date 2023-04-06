@@ -19,7 +19,7 @@ const sceneElements = {
     tiles : null,
     ground : null,
 
-    startingTile : null,
+    /* startingTile : null, */
     endingTile : null,
     path : [],
 
@@ -119,33 +119,32 @@ function newEnemy(x, y, z, type){
             break;
     }
 
-    enemy.currentTile = sceneElements.startingTile;
-    enemy.currentPathTileIndex = sceneElements.startingTile.pathIndex;
+    enemy.currentTile = sceneElements.path[0];
+    enemy.currentPathTileIndex = sceneElements.path[0].pathIndex;
     return enemy;
 
 }
 
-function newEnemySmall(x, z){
+function newEnemySmall(x, y, z){
     const size = 0.3;
     const position_y = size/2;
 
-    return newCube(x, position_y, z, size, 'rgb(063, 136, 143)');
+    return newCube(x, position_y, y, size, 'rgb(063, 136, 143)');
 }
 
-function newEnemyMedium(x, z){
+function newEnemyMedium(x, y, z){
     const size = 0.5;
     const position_y = size/2;
 
-    return newCube(x, position_y, z, size, 'rgb(044, 085, 069)');
+    return newCube(x, position_y, y, size, 'rgb(044, 085, 069)');
 }
 
-function newEnemyBig(x, z){
+function newEnemyBig(x, y, z){
     const size = 0.7;
     const position_y = size/2;
 
-    return newCube(x, position_y, z, size, 'rgb(037, 040, 080)');
+    return newCube(x, position_y, y, size, 'rgb(037, 040, 080)');
 }
-
 
 
 
@@ -163,10 +162,10 @@ function load3DObjects(sceneGraph) {
     // create the array to store the ground colors
     const ground = [
         [0, 0, 0, 0, 0, 0],
-        [2, 1, 0, 0, 0, 0],
-        [0, 1, 1, 0, 1, 3],
-        [0, 0, 1, 0, 1, 0],
-        [0, 0, 1, 1, 1, 0],
+        [1, 2, 0, 0, 0, 0],
+        [0, 3, 4, 0, 10, 11],
+        [0, 0, 5, 0, 9, 0],
+        [0, 0, 6, 7, 8, 0],
         [0, 0, 0, 0, 0, 0],
       ];
     sceneElements.ground = ground;
@@ -217,43 +216,35 @@ function load3DObjects(sceneGraph) {
 
             switch (sceneElements.ground[row][col]) {
                 case 0:// grass
-                tileMaterial.color.set(0x00ff00); // set to green
-                tileMaterial.originalColor = 0x00ff00;
+                    tileMaterial.color.set(0x00ff00); // set to green
+                    tileMaterial.originalColor = 0x00ff00;
 
-                tileMaterial.typeOfGround = 0;
-                break;
+                    tileMaterial.typeOfGround = 0;
+                    break;
 
-                case 1: // path
-                tileMaterial.color.set(0xA98307); // set to yellow
-                tileMaterial.originalColor = 0xC6A664;
+                case 1: // starting
+                    tileMaterial.color.set(0x4287f5); // set to blue
+                    tileMaterial.originalColor = 0x4287f5;
 
-                tileMaterial.typeOfGround = 1;
+                    tileMaterial.typeOfGround = 1;
 
-                single_tile.pathIndex = sceneElements.path.length;
-                sceneElements.path.push(single_tile);
-                break;
-                case 2: // starting
-                tileMaterial.color.set(0x4287f5); // set to blue
-                tileMaterial.originalColor = 0x4287f5;
+                    single_tile.pathIndex = 0;
+                    sceneElements.path.push(single_tile);
+                    break;
 
-                tileMaterial.typeOfGround = 2;
+                default: // path
+                    tileMaterial.color.set(0xA98307); // set to yellow
+                    tileMaterial.originalColor = 0xC6A664;
+                    /* tileMaterial.color.set(0xfc6900); // set to orange
+                    tileMaterial.originalColor = 0xfc6900; */
 
-                sceneElements.startingTile = single_tile;
+                    tileMaterial.typeOfGround = 3;
 
-                single_tile.pathIndex = sceneElements.path.length;
-                sceneElements.path.push(single_tile);
-                break;
-                default: // ending
-                tileMaterial.color.set(0xfc6900); // set to orange
-                tileMaterial.originalColor = 0xfc6900;
+                    sceneElements.endingTile = single_tile;
 
-                tileMaterial.typeOfGround = 3;
-
-                sceneElements.endingTile = single_tile;
-
-                single_tile.pathIndex = sceneElements.path.length;
-                sceneElements.path.push(single_tile);
-                break;
+                    single_tile.pathIndex = sceneElements.ground[row][col] - 1;
+                    sceneElements.path.push(single_tile);
+                    break;
             }
 
             // ---------- TODO fix aliasing problem --------- // 
@@ -265,6 +256,14 @@ function load3DObjects(sceneGraph) {
             planeObject.add(single_tile);
         }
     }
+
+    // sort the path tiles by pathIndex
+    sceneElements.path.sort((a, b) => a.pathIndex - b.pathIndex);
+
+    // set the ending tile
+    const endingTile = sceneElements.path[sceneElements.path.length - 1];
+    endingTile.material.color.set(0xfc6900); // set to orange
+    endingTile.material.originalColor = 0xfc6900;
 
     
     sceneGraph.add(planeObject);
@@ -301,7 +300,7 @@ function load3DObjects(sceneGraph) {
     const sphereGeometry = new THREE.SphereGeometry(0.5, 32, 32);
     const sphereMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(180,180,255)' });
     const sphereObject = new THREE.Mesh(sphereGeometry, sphereMaterial);
-    sceneGraph.add(sphereObject);
+    //sceneGraph.add(sphereObject);
 
     // Set position of the sphere
     // Move to the left and away from (0,0,0)
@@ -318,7 +317,7 @@ function load3DObjects(sceneGraph) {
     const cylinderGeometry = new THREE.CylinderGeometry(0.2, 0.2, 1.5, 25, 1);
     const cylinderMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(200,255,150)' });
     const cylinderObject = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
-    sceneGraph.add(cylinderObject);
+    //sceneGraph.add(cylinderObject);
 
     // Set position of the cylinder
     // Move to the right and towards the camera
@@ -489,51 +488,56 @@ var delta = 0.1;
 
 var dispX = 0.2, dispZ = 0.2;
 
+var TEST_assert_one_enemy_only = 0; //
+const step = 0.01;
 function computeFrame(time) {
+
     
     // THE ENEMIES
-    if (time % 2000 < 20) { // every 2 seconds
-        const startingPosition = sceneElements.startingTile.position;
-        
+    if (TEST_assert_one_enemy_only === 0 & (time % 2000 < 20)) { // every 2 seconds
+        const startingPosition = sceneElements.path[0].position;
+
 
         const enemy = newEnemy(startingPosition.x, startingPosition.y, startingPosition.z, 'small');
         sceneElements.sceneGraph.add(enemy);
         sceneElements.enemies.push(enemy);
-
+        TEST_assert_one_enemy_only = 1;
     }
 
     // MOVING THE ENEMIES TOWARDS THE ENDING TILE
     for (let i = 0; i < sceneElements.enemies.length; i++) {
         const enemy = sceneElements.enemies[i];
 
-        const currentTileIndex = enemy.currentTile.index;
+        //const currentTileIndex = enemy.currentTile.index;
         
         const nextPathTileIndex = enemy.currentPathTileIndex + 1;
+        if (nextPathTileIndex >= sceneElements.path.length) { // the enemy has reached the end of the path
+            // TODO remove the enemy from the scene and decrease health
+            continue;
+        }
         const nextPathTile = sceneElements.path[nextPathTileIndex];
         
         const direction_x = nextPathTile.position.x - enemy.position.x;
         const direction_z = nextPathTile.position.y - enemy.position.z;
 
-        const step = 0.01;
+        /* step = 0.01; */
 
-        if (direction_x > 0) {
+        if (direction_x.toFixed(2) > 0) {
             enemy.translateX(step);
         } 
-        else if (direction_x < 0) {
+        else if (direction_x.toFixed(2) < 0) {
             enemy.translateX(-step);
         }
-        if (direction_z > 0) {
+        if (direction_z.toFixed(2) > 0) {
             enemy.translateZ(step);
         }
-        else if (direction_z < 0) {
+        else if (direction_z.toFixed(2) < 0) {
             enemy.translateZ(-step);
         }
 
-        // now we need to check if the enemy has reached the center of the next tile
-        console.log("enemy position: " + enemy.position.x + " " + enemy.position.z);
-        if (direction_x == 0 && direction_z == 0) { // ---------------- TODO direction_x and direction_z never get to exactly 0 
+        // check if the enemy has reached the center of the next tile
+        if (direction_x.toFixed(2) == 0 && direction_z.toFixed(2) == 0) {
             enemy.currentPathTileIndex++;
-            console.log("enemy reached tile " + enemy.currentPathTileIndex);
         }
 
 
