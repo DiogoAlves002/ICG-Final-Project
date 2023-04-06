@@ -15,9 +15,15 @@ const sceneElements = {
     camera: null,
     control: null,
     renderer: null,
+
     tiles : null,
     ground : null,
-    groundColor : null,
+
+    startingTile : null,
+    endingTile : null,
+    path : [],
+
+    enemies : [],
 };
 
 
@@ -84,6 +90,66 @@ function onDocumentKeyUp(event) {
     }
 }
 
+
+function newCube(x, y, z, size, color) {
+    const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const cubeMaterial = new THREE.MeshPhongMaterial({ color: color });
+    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+
+    cube.position.set(x, y, z);
+    cube.scale.set(size, size, size);
+
+    cube.castShadow = true;
+    cube.receiveShadow = true;
+
+    return cube;
+}
+
+function newEnemy(x, y, z, type){
+    let enemy = null;
+    switch(type){
+        case 'small':
+            enemy =  newEnemySmall(x, y, z);
+            break;
+        case 'medium':
+            enemy = newEnemyMedium(x, y, z);
+            break;
+        case 'big':
+            enemy = newEnemyBig(x, y, z);
+            break;
+    }
+
+    enemy.currentTile = sceneElements.startingTile;
+    enemy.currentPathTileIndex = sceneElements.startingTile.pathIndex;
+    return enemy;
+
+}
+
+function newEnemySmall(x, z){
+    const size = 0.3;
+    const position_y = size/2;
+
+    return newCube(x, position_y, z, size, 'rgb(063, 136, 143)');
+}
+
+function newEnemyMedium(x, z){
+    const size = 0.5;
+    const position_y = size/2;
+
+    return newCube(x, position_y, z, size, 'rgb(044, 085, 069)');
+}
+
+function newEnemyBig(x, z){
+    const size = 0.7;
+    const position_y = size/2;
+
+    return newCube(x, position_y, z, size, 'rgb(037, 040, 080)');
+}
+
+
+
+
+
 //////////////////////////////////////////////////////////////////
 
 
@@ -97,8 +163,8 @@ function load3DObjects(sceneGraph) {
     // create the array to store the ground colors
     const ground = [
         [0, 0, 0, 0, 0, 0],
-        [1, 1, 0, 0, 0, 0],
-        [0, 1, 1, 0, 1, 1],
+        [2, 1, 0, 0, 0, 0],
+        [0, 1, 1, 0, 1, 3],
         [0, 0, 1, 0, 1, 0],
         [0, 0, 1, 1, 1, 0],
         [0, 0, 0, 0, 0, 0],
@@ -113,7 +179,6 @@ function load3DObjects(sceneGraph) {
     const tiles = [];
     sceneElements.tiles = tiles;
 
-    sceneElements.groundColor = {};
 
     
 
@@ -128,7 +193,7 @@ function load3DObjects(sceneGraph) {
             new THREE.Vector3(-planeSize.x / 2 + row * tileSize, planeSize.y / 2, -0.02), // first point
             new THREE.Vector3(-planeSize.x / 2 + row * tileSize, -planeSize.y / 2, -0.02) // second point
         ]);
-        const verticalLineMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
+        const verticalLineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
         const verticalLine = new THREE.Line(verticalLineGeometry, verticalLineMaterial);
         planeObject.add(verticalLine);
 
@@ -137,7 +202,7 @@ function load3DObjects(sceneGraph) {
             new THREE.Vector3(-planeSize.x / 2, -planeSize.y / 2 + row * (planeSize.y / subdivisions), -0.02), // first point
             new THREE.Vector3(planeSize.x / 2, -planeSize.y / 2 + row * (planeSize.y / subdivisions), -0.02) // second point
         ]);
-        const horizontalLineMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
+        const horizontalLineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
         const horizontalLine = new THREE.Line(horizontalLineGeometry, horizontalLineMaterial);
         planeObject.add(horizontalLine);
 
@@ -150,21 +215,52 @@ function load3DObjects(sceneGraph) {
             single_tile.position.y = -planeSize.y / 2 + row * tileSize + tileSize / 2;
             single_tile.position.z = -0.01;
 
-            if (sceneElements.ground[row][col] === 0 ){
+            switch (sceneElements.ground[row][col]) {
+                case 0:// grass
                 tileMaterial.color.set(0x00ff00); // set to green
-                sceneElements.groundColor[single_tile.uuid]= 0x00ff00;
-            } else {
-                tileMaterial.color.set(0xffff00); // set to yellow
-                sceneElements.groundColor[single_tile.uuid]= 0xffff00;
+                tileMaterial.originalColor = 0x00ff00;
+
+                tileMaterial.typeOfGround = 0;
+                break;
+
+                case 1: // path
+                tileMaterial.color.set(0xA98307); // set to yellow
+                tileMaterial.originalColor = 0xC6A664;
+
+                tileMaterial.typeOfGround = 1;
+
+                single_tile.pathIndex = sceneElements.path.length;
+                sceneElements.path.push(single_tile);
+                break;
+                case 2: // starting
+                tileMaterial.color.set(0x4287f5); // set to blue
+                tileMaterial.originalColor = 0x4287f5;
+
+                tileMaterial.typeOfGround = 2;
+
+                sceneElements.startingTile = single_tile;
+
+                single_tile.pathIndex = sceneElements.path.length;
+                sceneElements.path.push(single_tile);
+                break;
+                default: // ending
+                tileMaterial.color.set(0xfc6900); // set to orange
+                tileMaterial.originalColor = 0xfc6900;
+
+                tileMaterial.typeOfGround = 3;
+
+                sceneElements.endingTile = single_tile;
+
+                single_tile.pathIndex = sceneElements.path.length;
+                sceneElements.path.push(single_tile);
+                break;
             }
 
+            // ---------- TODO fix aliasing problem --------- // 
             /* single_tile.castShadow = true;
             single_tile.receiveShadow = true; */
-            /* if (sceneElements.ground[row][col] === 0) {
-                tileMaterial.color.set(0x00ff00); // set to green
-              } else {
-                tileMaterial.color.set(0xffff00); // set to yellow
-              } */
+
+            single_tile.index = tiles.length;
             tiles.push(single_tile);
             planeObject.add(single_tile);
         }
@@ -183,18 +279,17 @@ function load3DObjects(sceneGraph) {
     // Create a cube
     // ************************** //
     // Cube center is at (0,0,0)
-    const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const cubeMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(255,0,0)' });
-    const cubeObject = new THREE.Mesh(cubeGeometry, cubeMaterial);
+
+    const cubeObject = newCube(0, 0.5, 0, 1, 'rgb(255,0,0)');
     sceneGraph.add(cubeObject);
 
     // Set position of the cube
     // The base of the cube will be on the plane 
-    cubeObject.translateY(0.5);
+    //cubeObject.translateY(0.5);
 
     // Set shadow property
-    cubeObject.castShadow = true;
-    cubeObject.receiveShadow = true;
+    /* cubeObject.castShadow = true;
+    cubeObject.receiveShadow = true; */
 
     // Name
     cubeObject.name = "cube";
@@ -264,53 +359,128 @@ function load3DObjects(sceneGraph) {
 
 
 // ************************** //
-// Create a raycast to check for mouse clicks on objects
+// Check for mouseover
 // ************************** //
-const pointer = new THREE.Vector2();
+
+const mouseMove = new THREE.Vector2();
+const mouseClick = new THREE.Vector2();
 const raycaster = new THREE.Raycaster();
 let hoveredTile = null; // keep track of the currently hovered tile
 let tileColor = null;
+let tile = null;
+
+// set up pulsing effect
+const pulseDuration = 0.5; // duration of one pulse cycle (in seconds)
+const pulseScale = 1.2; // scale factor at the peak of the pulse
+let pulseTween = null;
 
 const onMouseMove = (event) => {
-    // calculate pointer position in normalized device coordinates
+    // calculate mouseMove position in normalized device coordinates
     // (-1 to +1) for both components
-    pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
-    pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    mouseMove.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouseMove.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-    raycaster.setFromCamera(pointer, sceneElements.camera);
+    raycaster.setFromCamera(mouseMove, sceneElements.camera);
     const intersects = raycaster.intersectObjects(sceneElements.tiles);
 
-    // for (let i = 0; i < intersects.length; i++) {
-    //   console.log(intersects);
-    // }
-
-    // change color of objects intersecting the raycaster
-    // for (let i = 0; i < intersects.length; i++) {
-    //   intersects[i].object.material.color.set(0xff0000);
-    // }
 
     // change color of the closest object intersecting the raycaster
     if (intersects.length > 0) {
-        const tile = intersects[0].object;
+        tile = intersects[0].object;
+
+
         if (tile !== hoveredTile) {
             if (hoveredTile) {
-                tileColor = sceneElements.groundColor[hoveredTile.uuid];
+                tileColor = hoveredTile.material.originalColor;
                 hoveredTile.material.color.set(tileColor);
+            }
+            if (tile.material.typeOfGround != 0){ // if the tile is not a grass tile
+                return;
             }
             hoveredTile = tile;
             hoveredTile.material.color.set(0xff0000);
         }
-        } else {
+    } else {
         if (hoveredTile) {
-            tileColor = sceneElements.groundColor[hoveredTile.uuid];
+            tileColor = hoveredTile.material.originalColor;
             hoveredTile.material.color.set(tileColor);
             hoveredTile = null;
         }
     }
 
+    // pulse the hovered tile
+    /* if (intersects.length > 0) {
+        const tile = intersects[0].object;
+        if (tile !== hoveredTile) {
+            // cancel any existing pulse tween
+            if (pulseTween && pulseTween.kill) pulseTween.kill(); // add a check for pulseTween.kill
+            if (hoveredTile) {
+                const tileMaterial = hoveredTile.material;
+                const tileColor = tileMaterial.originalColor;
+                tileMaterial.color.set(tileColor);
+            }
+            hoveredTile = tile;
+            pulseTween = new TWEEN.Tween(hoveredTile.material.color)
+                .to({r: 1, g: 1, b: 1}, 200)
+                .easing(TWEEN.Easing.Quadratic.Out)
+                .yoyo(true)
+                .repeat(Infinity)
+                .start();
+        }
+    } else {
+        if (hoveredTile) {
+            const tileMaterial = hoveredTile.material;
+            const tileColor = tileMaterial.originalColor;
+            if (pulseTween && pulseTween.kill) pulseTween.kill(); // add a check for pulseTween.kill
+            new TWEEN.Tween(tileMaterial.color)
+                .to({r: ((tileColor >> 16) & 255) / 255, g: ((tileColor >> 8) & 255) / 255, b: (tileColor & 255) / 255}, 200)
+                .easing(TWEEN.Easing.Quadratic.Out)
+                .start();
+            hoveredTile = null;
+        }
+    } */
+};
+
+
+// ************************** //
+// Check for mouse click
+// ************************** //
+
+const onMouseClick = (event) => {
+    mouseClick.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouseClick.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouseClick, sceneElements.camera);
+    const intersects = raycaster.intersectObjects(sceneElements.tiles);
+
+    if (intersects.length > 0) {
+        const tile = intersects[0].object;
+
+        if (tile.material.typeOfGround != 0){ // if the tile is not a grass tile
+            return;
+        }
+
+        tile.material.color.set(0x0700db);
+
+        const tileSize = tile.geometry.parameters.width - 0.2;
+        
+        // the plane is rotated 90 degrees so the y and z coordinates are swapped
+        const tilePosition_X = tile.position.x;
+        const tilePosition_Y = tile.position.z + 0.5 - 0.1; // 0.5 because the cube is set at its center and we need to set it at the bottom of the tile, 0.1 because the cube is 0.2 smaller than the tile
+        const tilePosition_Z = tile.position.y ;
+
+
+        // create a new cube
+        const cube = newCube(tilePosition_X, tilePosition_Y, tilePosition_Z, tileSize, 0x293133);
+        sceneElements.sceneGraph.add(cube);
+
+    }
+
+
 };
 
 window.addEventListener('mousemove', onMouseMove);
+window.addEventListener('click', onMouseClick);
 
 
 // Displacement value
@@ -320,6 +490,60 @@ var delta = 0.1;
 var dispX = 0.2, dispZ = 0.2;
 
 function computeFrame(time) {
+    
+    // THE ENEMIES
+    if (time % 2000 < 20) { // every 2 seconds
+        const startingPosition = sceneElements.startingTile.position;
+        
+
+        const enemy = newEnemy(startingPosition.x, startingPosition.y, startingPosition.z, 'small');
+        sceneElements.sceneGraph.add(enemy);
+        sceneElements.enemies.push(enemy);
+
+    }
+
+    // MOVING THE ENEMIES TOWARDS THE ENDING TILE
+    for (let i = 0; i < sceneElements.enemies.length; i++) {
+        const enemy = sceneElements.enemies[i];
+
+        const currentTileIndex = enemy.currentTile.index;
+        
+        const nextPathTileIndex = enemy.currentPathTileIndex + 1;
+        const nextPathTile = sceneElements.path[nextPathTileIndex];
+        
+        const direction_x = nextPathTile.position.x - enemy.position.x;
+        const direction_z = nextPathTile.position.y - enemy.position.z;
+
+        const step = 0.01;
+
+        if (direction_x > 0) {
+            enemy.translateX(step);
+        } 
+        else if (direction_x < 0) {
+            enemy.translateX(-step);
+        }
+        if (direction_z > 0) {
+            enemy.translateZ(step);
+        }
+        else if (direction_z < 0) {
+            enemy.translateZ(-step);
+        }
+
+        // now we need to check if the enemy has reached the center of the next tile
+        console.log("enemy position: " + enemy.position.x + " " + enemy.position.z);
+        if (direction_x == 0 && direction_z == 0) { // ---------------- TODO direction_x and direction_z never get to exactly 0 
+            enemy.currentPathTileIndex++;
+            console.log("enemy reached tile " + enemy.currentPathTileIndex);
+        }
+
+
+
+    }
+
+
+
+
+
 
     // THE SPOT LIGHT
 
