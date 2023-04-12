@@ -1,5 +1,7 @@
 "use strict";
 
+
+
 //  Adapted from Daniel Rohmer tutorial
 //
 // 		https://imagecomputing.net/damien.rohmer/teaching/2019_2020/semester_1/MPRI_2-39/practice/threejs/content/000_threejs_tutorial/index.html
@@ -12,7 +14,7 @@
 // To store the scene graph, and elements usefull to rendering the scene
 const sceneElements = {
     isStartMenuOn : true,
-    startMenu : null,
+    startMenu : [],
 
     sceneGraph: null,
     camera: null,
@@ -37,8 +39,7 @@ const sceneElements = {
 //  2. Add elements within the scene
 //  3. Animate
 helper.initEmptyScene(sceneElements);
-load3DObjects(sceneElements.sceneGraph);
-requestAnimationFrame(computeFrame);
+loadStartMenu(sceneElements.sceneGraph);
 
 // HANDLING EVENTS
 
@@ -161,9 +162,70 @@ function decreasePlayerHealth(value){
     const healthBar = sceneElements.sceneGraph.getObjectByName("playerHealthBar");
     const healthBarScale = healthBar.scale;
 
-    healthBar.scale.x -= value;
+    healthBarScale.x -= value;
     healthBar.position.x -= value*1.5;
 }
+
+
+
+
+
+
+
+
+
+
+
+//***************************//
+// start menu
+//***************************//
+function loadStartMenu(sceneGraph){
+
+    // startGameButton
+    const color = 'rgb(255, 255, 255)';
+    const startButton = newCube(0, 0, 0, 0.8, color);
+    startButton.scale.x = 3;
+    startButton.name = "startButton";
+    startButton.originalColor = color;
+
+    sceneGraph.add(startButton);
+    sceneElements.startMenu.push(startButton);
+
+    // startGameText
+    const fontLoader = new THREE.FontLoader();
+        fontLoader.load('./font.json', function (droidFont) {
+        const textGeometry = new THREE.TextGeometry('Start Game', {
+            font: droidFont,
+            size: 0.3,
+            height: 0.1,
+            curveSegments: 12,
+            bevelEnabled: true,
+            bevelThickness: 0.03,
+            bevelSize: 0.02,
+            bevelOffset: 0,
+            bevelSegments: 5
+        });
+        const textMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(0, 0, 0)' });
+        const text = new THREE.Mesh(textGeometry, textMaterial);
+
+        text.position.set(-1, -0.1, 0.3);
+        text.name = "Start Game";
+
+        text.name = "startButtonText"
+        sceneGraph.add(text);
+        sceneElements.startMenu.push(text);
+    });
+
+}
+
+
+
+
+
+
+
+
+
 
 
 
@@ -172,6 +234,11 @@ function decreasePlayerHealth(value){
 
 // Create and insert in the scene graph the models of the 3D scene
 function load3DObjects(sceneGraph) {
+
+    // get spot light by its name "ligth"
+    const spotLight = sceneGraph.getObjectByName("light");
+    // move spot light back
+    spotLight.position.set(-5, 8, 10);
 
     // ************************** //
     // Create a ground plane
@@ -324,61 +391,6 @@ function load3DObjects(sceneGraph) {
     
 
 
-
-    // ************************** //
-    // Create a cube
-    // ************************** //
-    // Cube center is at (0,0,0)
-
-    const cubeObject = newCube(0, 0.5, 0, 1, 'rgb(255,0,0)');
-    //sceneGraph.add(cubeObject);
-
-    // Set position of the cube
-    // The base of the cube will be on the plane 
-    //cubeObject.translateY(0.5);
-
-    // Set shadow property
-    /* cubeObject.castShadow = true;
-    cubeObject.receiveShadow = true; */
-
-    // Name
-    cubeObject.name = "cube";
-
-    // ************************** //
-    // Create a sphere
-    // ************************** //
-    // Sphere center is at (0,0,0)
-    const sphereGeometry = new THREE.SphereGeometry(0.5, 32, 32);
-    const sphereMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(180,180,255)' });
-    const sphereObject = new THREE.Mesh(sphereGeometry, sphereMaterial);
-    //sceneGraph.add(sphereObject);
-
-    // Set position of the sphere
-    // Move to the left and away from (0,0,0)
-    // The sphere touches the plane
-    sphereObject.translateX(-1.2).translateY(0.5).translateZ(-0.5);
-
-    // Set shadow property
-    sphereObject.castShadow = true;
-
-
-    // ************************** //
-    // Create a cylinder
-    // ************************** //
-    const cylinderGeometry = new THREE.CylinderGeometry(0.2, 0.2, 1.5, 25, 1);
-    const cylinderMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(200,255,150)' });
-    const cylinderObject = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
-    //sceneGraph.add(cylinderObject);
-
-    // Set position of the cylinder
-    // Move to the right and towards the camera
-    // The base of the cylinder is on the plane
-    cylinderObject.translateX(0.5).translateY(0.75).translateZ(1.5);
-
-    // Set shadow property
-    cylinderObject.castShadow = true;
-
-    ///// NEW /////
     // ************************** //
     // NEW - Create a CONVEX HULL
     // ************************** //
@@ -431,64 +443,85 @@ const onMouseMove = (event) => {
     mouseMove.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
     raycaster.setFromCamera(mouseMove, sceneElements.camera);
-    const intersects = raycaster.intersectObjects(sceneElements.tiles);
+
+    var startButton = sceneElements.startMenu[0];
+
+    if (sceneElements.isStartMenuOn == true){ // main menu
+        const intersects = raycaster.intersectObjects(sceneElements.startMenu);
+        
+        if (intersects.length > 0){
+            const object = intersects[0].object;
+            if (object.name == "startButton" || object.name == "startButtonText"){
+                startButton.material.color.set(0xff0000);
+            }else{
+                const originalColor = startButton.originalColor;
+                startButton.material.color.set(originalColor);
+            }
+        }else{
+            // get object by name attribute
+            const originalColor = startButton.originalColor;
+            startButton.material.color.set(originalColor);
+        }
 
 
-    // change color of the closest object intersecting the raycaster
-    if (intersects.length > 0) {
-        tile = intersects[0].object;
-
-
-        if (tile !== hoveredTile) {
+    }else{ // game
+        const intersects = raycaster.intersectObjects(sceneElements.tiles);
+        // change color of the closest object intersecting the raycaster
+        if (intersects.length > 0) {
+            tile = intersects[0].object;
+    
+    
+            if (tile !== hoveredTile) {
+                if (hoveredTile) {
+                    tileColor = hoveredTile.material.originalColor;
+                    hoveredTile.material.color.set(tileColor);
+                }
+                if (tile.material.typeOfGround != 0){ // if the tile is not a grass tile
+                    return;
+                }
+                hoveredTile = tile;
+                hoveredTile.material.color.set(0xff0000);
+            }
+        } else {
             if (hoveredTile) {
                 tileColor = hoveredTile.material.originalColor;
                 hoveredTile.material.color.set(tileColor);
+                hoveredTile = null;
             }
-            if (tile.material.typeOfGround != 0){ // if the tile is not a grass tile
-                return;
+        }
+    
+        // pulse the hovered tile // TODO
+        /* if (intersects.length > 0) {
+            const tile = intersects[0].object;
+            if (tile !== hoveredTile) {
+                // cancel any existing pulse tween
+                if (pulseTween && pulseTween.kill) pulseTween.kill(); // add a check for pulseTween.kill
+                if (hoveredTile) {
+                    const tileMaterial = hoveredTile.material;
+                    const tileColor = tileMaterial.originalColor;
+                    tileMaterial.color.set(tileColor);
+                }
+                hoveredTile = tile;
+                pulseTween = new TWEEN.Tween(hoveredTile.material.color)
+                    .to({r: 1, g: 1, b: 1}, 200)
+                    .easing(TWEEN.Easing.Quadratic.Out)
+                    .yoyo(true)
+                    .repeat(Infinity)
+                    .start();
             }
-            hoveredTile = tile;
-            hoveredTile.material.color.set(0xff0000);
-        }
-    } else {
-        if (hoveredTile) {
-            tileColor = hoveredTile.material.originalColor;
-            hoveredTile.material.color.set(tileColor);
-            hoveredTile = null;
-        }
-    }
-
-    // pulse the hovered tile
-    /* if (intersects.length > 0) {
-        const tile = intersects[0].object;
-        if (tile !== hoveredTile) {
-            // cancel any existing pulse tween
-            if (pulseTween && pulseTween.kill) pulseTween.kill(); // add a check for pulseTween.kill
+        } else {
             if (hoveredTile) {
                 const tileMaterial = hoveredTile.material;
                 const tileColor = tileMaterial.originalColor;
-                tileMaterial.color.set(tileColor);
+                if (pulseTween && pulseTween.kill) pulseTween.kill(); // add a check for pulseTween.kill
+                new TWEEN.Tween(tileMaterial.color)
+                    .to({r: ((tileColor >> 16) & 255) / 255, g: ((tileColor >> 8) & 255) / 255, b: (tileColor & 255) / 255}, 200)
+                    .easing(TWEEN.Easing.Quadratic.Out)
+                    .start();
+                hoveredTile = null;
             }
-            hoveredTile = tile;
-            pulseTween = new TWEEN.Tween(hoveredTile.material.color)
-                .to({r: 1, g: 1, b: 1}, 200)
-                .easing(TWEEN.Easing.Quadratic.Out)
-                .yoyo(true)
-                .repeat(Infinity)
-                .start();
-        }
-    } else {
-        if (hoveredTile) {
-            const tileMaterial = hoveredTile.material;
-            const tileColor = tileMaterial.originalColor;
-            if (pulseTween && pulseTween.kill) pulseTween.kill(); // add a check for pulseTween.kill
-            new TWEEN.Tween(tileMaterial.color)
-                .to({r: ((tileColor >> 16) & 255) / 255, g: ((tileColor >> 8) & 255) / 255, b: (tileColor & 255) / 255}, 200)
-                .easing(TWEEN.Easing.Quadratic.Out)
-                .start();
-            hoveredTile = null;
-        }
-    } */
+        } */
+    }
 };
 
 
@@ -501,29 +534,61 @@ const onMouseClick = (event) => {
     mouseClick.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
     raycaster.setFromCamera(mouseClick, sceneElements.camera);
-    const intersects = raycaster.intersectObjects(sceneElements.tiles);
 
-    if (intersects.length > 0) {
-        const tile = intersects[0].object;
+    var startButton = sceneElements.startMenu[0];
 
-        if (tile.material.typeOfGround != 0){ // if the tile is not a grass tile
-            return;
+
+    if (sceneElements.isStartMenuOn == true){
+        const intersects = raycaster.intersectObjects(sceneElements.startMenu);
+        
+        if (intersects.length > 0){
+            const object = intersects[0].object;
+            if (object.name == "startButton" || object.name == "startButtonText"){
+                startButton.material.color.set(0x00ff00);
+
+                sceneElements.isStartMenuOn = false;
+
+                sceneElements.sceneGraph.remove(sceneElements.startMenu[0]);
+                sceneElements.sceneGraph.remove(sceneElements.startMenu[1]);
+                sceneElements.startMenu = [];
+
+
+                load3DObjects(sceneElements.sceneGraph);
+            }else{
+                const originalColor = startButton.originalColor;
+                startButton.material.color.set(originalColor);
+            }
+        }else{
+            // get object by name attribute
+            const originalColor = startButton.originalColor;
+            startButton.material.color.set(originalColor);
         }
 
-        tile.material.color.set(0x0700db);
+    }else{
+        const intersects = raycaster.intersectObjects(sceneElements.tiles);
 
-        const tileSize = tile.geometry.parameters.width - 0.2;
-        
-        // the plane is rotated 90 degrees so the y and z coordinates are swapped
-        const tilePosition_X = tile.position.x;
-        const tilePosition_Y = tile.position.z + 0.5 - 0.1; // 0.5 because the cube is set at its center and we need to set it at the bottom of the tile, 0.1 because the cube is 0.2 smaller than the tile
-        const tilePosition_Z = tile.position.y ;
+        if (intersects.length > 0) {
+            const tile = intersects[0].object;
+
+            if (tile.material.typeOfGround != 0){ // if the tile is not a grass tile
+                return;
+            }
+
+            tile.material.color.set(0x0700db);
+
+            const tileSize = tile.geometry.parameters.width - 0.2;
+            
+            // the plane is rotated 90 degrees so the y and z coordinates are swapped
+            const tilePosition_X = tile.position.x;
+            const tilePosition_Y = tile.position.z + 0.5 - 0.1; // 0.5 because the cube is set at its center and we need to set it at the bottom of the tile, 0.1 because the cube is 0.2 smaller than the tile
+            const tilePosition_Z = tile.position.y ;
 
 
-        // create a new cube
-        const cube = newCube(tilePosition_X, tilePosition_Y, tilePosition_Z, tileSize, 0x293133);
-        sceneElements.sceneGraph.add(cube);
+            // create a new cube
+            const cube = newCube(tilePosition_X, tilePosition_Y, tilePosition_Z, tileSize, 0x293133);
+            sceneElements.sceneGraph.add(cube);
 
+        }
     }
 
 
@@ -541,61 +606,74 @@ var dispX = 0.2, dispZ = 0.2;
 
 var TEST_assert_one_enemy_only = 0; //
 const step = 0.01;
+const STARTGAME = 0;
 function computeFrame(time) {
 
+    /* // exit main menu and start game
+    if (sceneElements.isStartMenuOn == false & STARTGAME == 0){
+        load3DObjects(sceneElements.sceneGraph);
+        STARTGAME = 1;
+    } */
+
     
-    // THE ENEMIES
-    if (TEST_assert_one_enemy_only === 0 & (time % 2000 < 20)) { // every 2 seconds
-        const startingPosition = sceneElements.path[0].position;
 
-
-        const enemy = newEnemy(startingPosition.x, startingPosition.y, startingPosition.z, 'small');
-        sceneElements.sceneGraph.add(enemy);
-        sceneElements.enemies.push(enemy);
-        TEST_assert_one_enemy_only = 0;
+    if (sceneElements.isStartMenuOn == true){
+    }else{
+        // THE ENEMIES
+        if (TEST_assert_one_enemy_only === 0 & (time % 2000 < 20)) { // every 2 seconds
+            const startingPosition = sceneElements.path[0].position;
+    
+    
+            const enemy = newEnemy(startingPosition.x, startingPosition.y, startingPosition.z, 'small');
+            sceneElements.sceneGraph.add(enemy);
+            sceneElements.enemies.push(enemy);
+            TEST_assert_one_enemy_only = 0;
+        }
+    
+        // MOVING THE ENEMIES TOWARDS THE ENDING TILE
+        for (let i = 0; i < sceneElements.enemies.length; i++) {
+            const enemy = sceneElements.enemies[i];
+    
+            //const currentTileIndex = enemy.currentTile.index;
+            
+            const nextPathTileIndex = enemy.currentPathTileIndex + 1;
+            if (nextPathTileIndex == sceneElements.path.length) { // the enemy has reached the end of the path
+                decreasePlayerHealth(enemy.damage);
+    
+                sceneElements.enemies.splice(i, 1); // remove enemy
+                sceneElements.sceneGraph.remove(enemy);
+                continue;
+            }
+            const nextPathTile = sceneElements.path[nextPathTileIndex];
+            
+            const direction_x = nextPathTile.position.x - enemy.position.x;
+            const direction_z = nextPathTile.position.y - enemy.position.z;
+    
+    
+            if (direction_x.toFixed(2) > 0) {
+                enemy.translateX(step);
+            } 
+            else if (direction_x.toFixed(2) < 0) {
+                enemy.translateX(-step);
+            }
+            if (direction_z.toFixed(2) > 0) {
+                enemy.translateZ(step);
+            }
+            else if (direction_z.toFixed(2) < 0) {
+                enemy.translateZ(-step);
+            }
+    
+            // check if the enemy has reached the center of the next tile
+            if (direction_x.toFixed(2) == 0 && direction_z.toFixed(2) == 0) {
+                enemy.currentPathTileIndex++;
+            }
+    
+    
+    
+        }
     }
 
-    // MOVING THE ENEMIES TOWARDS THE ENDING TILE
-    for (let i = 0; i < sceneElements.enemies.length; i++) {
-        const enemy = sceneElements.enemies[i];
-
-        //const currentTileIndex = enemy.currentTile.index;
-        
-        const nextPathTileIndex = enemy.currentPathTileIndex + 1;
-        if (nextPathTileIndex == sceneElements.path.length) { // the enemy has reached the end of the path
-            decreasePlayerHealth(enemy.damage);
-
-            sceneElements.enemies.splice(i, 1); // remove enemy
-            sceneElements.sceneGraph.remove(enemy);
-            continue;
-        }
-        const nextPathTile = sceneElements.path[nextPathTileIndex];
-        
-        const direction_x = nextPathTile.position.x - enemy.position.x;
-        const direction_z = nextPathTile.position.y - enemy.position.z;
-
-
-        if (direction_x.toFixed(2) > 0) {
-            enemy.translateX(step);
-        } 
-        else if (direction_x.toFixed(2) < 0) {
-            enemy.translateX(-step);
-        }
-        if (direction_z.toFixed(2) > 0) {
-            enemy.translateZ(step);
-        }
-        else if (direction_z.toFixed(2) < 0) {
-            enemy.translateZ(-step);
-        }
-
-        // check if the enemy has reached the center of the next tile
-        if (direction_x.toFixed(2) == 0 && direction_z.toFixed(2) == 0) {
-            enemy.currentPathTileIndex++;
-        }
-
-
-
-    }
+    
 
 
 
@@ -618,7 +696,7 @@ function computeFrame(time) {
 
     // CONTROLING THE CUBE WITH THE KEYBOARD
 
-    const cube = sceneElements.sceneGraph.getObjectByName("cube");
+    /* const cube = sceneElements.sceneGraph.getObjectByName("cube");
 
     if (keyD && cube.position.x < 2.5) {
         cube.translateX(dispX);
@@ -631,7 +709,7 @@ function computeFrame(time) {
     }
     if (keyS && cube.position.z < 2.5) {
         cube.translateZ(dispZ);
-    }
+    } */
 
     // Rendering
     helper.render(sceneElements);
@@ -643,3 +721,8 @@ function computeFrame(time) {
     // Call for the next frame
     requestAnimationFrame(computeFrame);
 }
+
+
+
+//load3DObjects(sceneElements.sceneGraph);
+requestAnimationFrame(computeFrame);
