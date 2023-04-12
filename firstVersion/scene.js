@@ -11,6 +11,9 @@
 
 // To store the scene graph, and elements usefull to rendering the scene
 const sceneElements = {
+    isStartMenuOn : true,
+    startMenu : null,
+
     sceneGraph: null,
     camera: null,
     control: null,
@@ -24,6 +27,8 @@ const sceneElements = {
     path : [],
 
     enemies : [],
+
+    playerHealth : 10,
 };
 
 
@@ -110,12 +115,15 @@ function newEnemy(x, y, z, type){
     switch(type){
         case 'small':
             enemy =  newEnemySmall(x, y, z);
+            enemy.damage = 0.1;
             break;
         case 'medium':
             enemy = newEnemyMedium(x, y, z);
+            enemy.damage = 0.2;
             break;
         case 'big':
             enemy = newEnemyBig(x, y, z);
+            enemy.damage = 0.4;
             break;
     }
 
@@ -146,6 +154,16 @@ function newEnemyBig(x, y, z){
     return newCube(x, position_y, y, size, 'rgb(037, 040, 080)');
 }
 
+
+function decreasePlayerHealth(value){
+    sceneElements.playerHealth -= value * 10;
+
+    const healthBar = sceneElements.sceneGraph.getObjectByName("playerHealthBar");
+    const healthBarScale = healthBar.scale;
+
+    healthBar.scale.x -= value;
+    healthBar.position.x -= value*1.5;
+}
 
 
 
@@ -274,13 +292,46 @@ function load3DObjects(sceneGraph) {
     planeObject.receiveShadow = true;
 
 
+
+
+    // ************************** //
+    // Create a health bar
+    // ************************** //
+
+    const healthBarGeometry = new THREE.BoxGeometry(3, 0.2, 0.2);
+    const healthBarMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(255, 0, 0)', side: THREE.DoubleSide });
+    const healthBarObject = new THREE.Mesh(healthBarGeometry, healthBarMaterial);
+    healthBarObject.position.x = 0;
+    healthBarObject.position.y = 2.8;
+    healthBarObject.position.z = 0;
+    healthBarObject.name = 'playerHealthBar';
+    sceneGraph.add(healthBarObject);
+
+    const healthBarCaseGeometry = new THREE.BoxGeometry(3, 0.2, 0.2);
+    const healthBarCaseMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0xffffff,
+        opacity: 0.5,
+        transparent: true,
+        side: THREE.DoubleSide 
+    });
+    const healthBarCaseObject = new THREE.Mesh(healthBarCaseGeometry, healthBarCaseMaterial);
+    healthBarCaseObject.position.x = 0;
+    healthBarCaseObject.position.y = 2.8;
+    healthBarCaseObject.position.z = 0;
+    sceneGraph.add(healthBarCaseObject);
+
+
+    
+
+
+
     // ************************** //
     // Create a cube
     // ************************** //
     // Cube center is at (0,0,0)
 
     const cubeObject = newCube(0, 0.5, 0, 1, 'rgb(255,0,0)');
-    sceneGraph.add(cubeObject);
+    //sceneGraph.add(cubeObject);
 
     // Set position of the cube
     // The base of the cube will be on the plane 
@@ -349,7 +400,7 @@ function load3DObjects(sceneGraph) {
 
     const convexHull = new THREE.Mesh(meshGeometry, meshMaterial);
 
-    sceneGraph.add(convexHull);
+    //sceneGraph.add(convexHull);
 
     convexHull.castShadow = true;
 
@@ -501,7 +552,7 @@ function computeFrame(time) {
         const enemy = newEnemy(startingPosition.x, startingPosition.y, startingPosition.z, 'small');
         sceneElements.sceneGraph.add(enemy);
         sceneElements.enemies.push(enemy);
-        TEST_assert_one_enemy_only = 1;
+        TEST_assert_one_enemy_only = 0;
     }
 
     // MOVING THE ENEMIES TOWARDS THE ENDING TILE
@@ -511,8 +562,11 @@ function computeFrame(time) {
         //const currentTileIndex = enemy.currentTile.index;
         
         const nextPathTileIndex = enemy.currentPathTileIndex + 1;
-        if (nextPathTileIndex >= sceneElements.path.length) { // the enemy has reached the end of the path
-            // TODO remove the enemy from the scene and decrease health
+        if (nextPathTileIndex == sceneElements.path.length) { // the enemy has reached the end of the path
+            decreasePlayerHealth(enemy.damage);
+
+            sceneElements.enemies.splice(i, 1); // remove enemy
+            sceneElements.sceneGraph.remove(enemy);
             continue;
         }
         const nextPathTile = sceneElements.path[nextPathTileIndex];
@@ -520,7 +574,6 @@ function computeFrame(time) {
         const direction_x = nextPathTile.position.x - enemy.position.x;
         const direction_z = nextPathTile.position.y - enemy.position.z;
 
-        /* step = 0.01; */
 
         if (direction_x.toFixed(2) > 0) {
             enemy.translateX(step);
@@ -582,6 +635,7 @@ function computeFrame(time) {
 
     // Rendering
     helper.render(sceneElements);
+    
 
     // NEW --- Update control of the camera
     sceneElements.control.update();
