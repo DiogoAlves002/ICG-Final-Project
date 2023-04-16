@@ -24,7 +24,6 @@ const sceneElements = {
     tiles : null,
     ground : null,
 
-    /* startingTile : null, */
     endingTile : null,
     path : [],
 
@@ -111,6 +110,51 @@ function newCube(x, y, z, size, color) {
     return cube;
 }
 
+function newTower(x, y, z, type){
+    let tower = null;
+    switch(type){
+        case 'small':
+            tower =  newTowerSmall(x, y, z);
+            tower.damage = 0.1;
+            break;
+        case 'medium':
+            tower = newTowerMedium(x, y, z);
+            tower.damage = 0.2;
+            break;
+        case 'big':
+            tower = newTowerBig(x, y, z);
+            tower.damage = 0.4;
+            break;
+    }
+
+    return tower;
+}
+
+function newTowerSmall(x, y, z){
+    const size = 0.3;
+    const position_y = size/2;
+
+    return newCube(x, position_y, z, size, 0x58CFFD);
+}
+
+function newTowerMedium(x, y, z){
+    const size = 0.5;
+    const position_y = size/2;
+
+    return newCube(x, position_y, z, size, 0x7FB366);
+}
+
+function newTowerBig(x, y, z){
+    const size = 0.7;
+    const position_y = size/2;
+
+    return newCube(x, position_y, z, size, 0x0f4ede);
+}
+
+
+
+
+
 function newEnemy(x, y, z, type){
     let enemy = null;
     switch(type){
@@ -156,6 +200,7 @@ function newEnemyBig(x, y, z){
 }
 
 
+
 function decreasePlayerHealth(value){
     sceneElements.playerHealth -= value * 10;
 
@@ -193,7 +238,7 @@ function loadStartMenu(sceneGraph){
 
     // startGameText
     const fontLoader = new THREE.FontLoader();
-        fontLoader.load('./font.json', function (droidFont) {
+    fontLoader.load('./font.json', function (droidFont) {
         const textGeometry = new THREE.TextGeometry('Start Game', {
             font: droidFont,
             size: 0.3,
@@ -209,7 +254,6 @@ function loadStartMenu(sceneGraph){
         const text = new THREE.Mesh(textGeometry, textMaterial);
 
         text.position.set(-1, -0.1, 0.3);
-        text.name = "Start Game";
 
         text.name = "startButtonText"
         sceneGraph.add(text);
@@ -239,6 +283,9 @@ function load3DObjects(sceneGraph) {
     const spotLight = sceneGraph.getObjectByName("light");
     // move spot light back
     spotLight.position.set(-5, 8, 10);
+    sceneElements.sceneGraph.remove(spotLight);
+
+
 
     // ************************** //
     // Create a ground plane
@@ -262,8 +309,6 @@ function load3DObjects(sceneGraph) {
     // create the array to store the tiles
     const tiles = [];
     sceneElements.tiles = tiles;
-
-
     
 
     const planeGeometry = new THREE.PlaneGeometry(planeSize.x, planeSize.y, subdivisions - 1, subdivisions - 1);
@@ -320,8 +365,6 @@ function load3DObjects(sceneGraph) {
                 default: // path
                     tileMaterial.color.set(0xA98307); // set to yellow
                     tileMaterial.originalColor = 0xC6A664;
-                    /* tileMaterial.color.set(0xfc6900); // set to orange
-                    tileMaterial.originalColor = 0xfc6900; */
 
                     tileMaterial.typeOfGround = 3;
 
@@ -333,8 +376,8 @@ function load3DObjects(sceneGraph) {
             }
 
             // ---------- TODO fix aliasing problem --------- // 
-            /* single_tile.castShadow = true;
-            single_tile.receiveShadow = true; */
+            single_tile.castShadow = true;
+            single_tile.receiveShadow = true;
 
             single_tile.index = tiles.length;
             tiles.push(single_tile);
@@ -374,7 +417,7 @@ function load3DObjects(sceneGraph) {
     healthBarObject.name = 'playerHealthBar';
     sceneGraph.add(healthBarObject);
 
-    const healthBarCaseGeometry = new THREE.BoxGeometry(3, 0.2, 0.2);
+    const healthBarCaseGeometry = new THREE.BoxGeometry(3.1, 0.3, 0.3);
     const healthBarCaseMaterial = new THREE.MeshPhongMaterial({ 
         color: 0xffffff,
         opacity: 0.5,
@@ -386,6 +429,16 @@ function load3DObjects(sceneGraph) {
     healthBarCaseObject.position.y = 2.8;
     healthBarCaseObject.position.z = 0;
     sceneGraph.add(healthBarCaseObject);
+
+
+
+    // ************************** //
+    // Create a sun and moon
+    // ************************** //
+
+    const sunAndMoon = day_night_cycle.newSunAndMoon();
+    sunAndMoon.name = 'sunAndMoon';
+    sceneGraph.add(sunAndMoon);
 
 
     
@@ -538,7 +591,7 @@ const onMouseClick = (event) => {
     var startButton = sceneElements.startMenu[0];
 
 
-    if (sceneElements.isStartMenuOn == true){
+    if (sceneElements.isStartMenuOn == true){ // main menu
         const intersects = raycaster.intersectObjects(sceneElements.startMenu);
         
         if (intersects.length > 0){
@@ -564,7 +617,7 @@ const onMouseClick = (event) => {
             startButton.material.color.set(originalColor);
         }
 
-    }else{
+    }else{ // game
         const intersects = raycaster.intersectObjects(sceneElements.tiles);
 
         if (intersects.length > 0) {
@@ -580,13 +633,13 @@ const onMouseClick = (event) => {
             
             // the plane is rotated 90 degrees so the y and z coordinates are swapped
             const tilePosition_X = tile.position.x;
-            const tilePosition_Y = tile.position.z + 0.5 - 0.1; // 0.5 because the cube is set at its center and we need to set it at the bottom of the tile, 0.1 because the cube is 0.2 smaller than the tile
-            const tilePosition_Z = tile.position.y ;
+            const tilePosition_Y = tile.position.z;
+            const tilePosition_Z = tile.position.y;
 
 
-            // create a new cube
-            const cube = newCube(tilePosition_X, tilePosition_Y, tilePosition_Z, tileSize, 0x293133);
-            sceneElements.sceneGraph.add(cube);
+            // create a new tower
+            const tower = newTower(tilePosition_X, tilePosition_Y, tilePosition_Z, "big");
+            sceneElements.sceneGraph.add(tower);
 
         }
     }
@@ -598,7 +651,52 @@ window.addEventListener('mousemove', onMouseMove);
 window.addEventListener('click', onMouseClick);
 
 
+let framesText = null;
+function newFramesCounter(frames){
+
+    // remove the old frames counter if it exists
+    /* if (framesText != null){
+        sceneElements.sceneGraph.remove(framesText);
+        framesText = null;
+    } */
+
+
+    // new frames counter
+    const framesLoader = new THREE.FontLoader();
+    framesLoader.load('./font.json', function (droidFont) {
+        const framesGeometry = new THREE.TextGeometry('Frames ' + frames, {
+            font: droidFont,
+            size: 0.2,
+            height: 0.1,
+            curveSegments: 12,
+            bevelEnabled: true,
+            bevelThickness: 0.03,
+            bevelSize: 0.02,
+            bevelOffset: 0,
+            bevelSegments: 5
+        });
+        
+        const framesMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(0, 0, 0)' });
+        framesText = new THREE.Mesh(framesGeometry, framesMaterial);
+        //console.log("cccccccccc", framesText)
+        
+        framesText.position.set(-5, 3, 0.3);
+
+        framesText.name = "FramesCounter";
+        
+        sceneElements.sceneGraph.add(framesText);
+        sceneElements.startMenu.push(framesText);
+    });
+
+    //console.log("bbbbbbbbbbb", framesText);
+
+    //return framesText;
+}
+
+
 // Displacement value
+
+let frames = 0;
 
 var delta = 0.1;
 
@@ -609,17 +707,35 @@ const step = 0.01;
 const STARTGAME = 0;
 function computeFrame(time) {
 
-    /* // exit main menu and start game
-    if (sceneElements.isStartMenuOn == false & STARTGAME == 0){
-        load3DObjects(sceneElements.sceneGraph);
-        STARTGAME = 1;
-    } */
+    frames++;
+    if (frames % 100 == 0){
+        console.log("frames: " + frames/time*1000);
+    }
 
-    
+    //console.log("frames: " + framesText);
+    //newFramesCounter(frames);
+    //console.log("aaaaaaaaaaaas", framesText);
+    if (framesText != null){
+    framesText.lookAt(sceneElements.camera.position);
+    }
 
     if (sceneElements.isStartMenuOn == true){
+
+        // THE SPOT LIGHT
+        const light = sceneElements.sceneGraph.getObjectByName("light");
+
+        // Apply a small displacement
+
+        if (light.position.x >= 10) {
+            delta *= -1;
+        } else if (light.position.x <= -10) {
+            delta *= -1;
+        }
+        light.translateX(delta);
+
     }else{
-        // THE ENEMIES
+        
+        // spawning enemies
         if (TEST_assert_one_enemy_only === 0 & (time % 2000 < 20)) { // every 2 seconds
             const startingPosition = sceneElements.path[0].position;
     
@@ -630,11 +746,10 @@ function computeFrame(time) {
             TEST_assert_one_enemy_only = 0;
         }
     
-        // MOVING THE ENEMIES TOWARDS THE ENDING TILE
+        // moving enemies towards the end of the path
         for (let i = 0; i < sceneElements.enemies.length; i++) {
             const enemy = sceneElements.enemies[i];
     
-            //const currentTileIndex = enemy.currentTile.index;
             
             const nextPathTileIndex = enemy.currentPathTileIndex + 1;
             if (nextPathTileIndex == sceneElements.path.length) { // the enemy has reached the end of the path
@@ -667,10 +782,15 @@ function computeFrame(time) {
             if (direction_x.toFixed(2) == 0 && direction_z.toFixed(2) == 0) {
                 enemy.currentPathTileIndex++;
             }
-    
-    
-    
         }
+
+
+
+        // sun and moon rotation
+        const sunAndMoon = sceneElements.sceneGraph.getObjectByName("sunAndMoon");
+        sunAndMoon.rotation.z += 0.001;
+
+        
     }
 
     
@@ -680,19 +800,7 @@ function computeFrame(time) {
 
 
 
-    // THE SPOT LIGHT
 
-    // Can extract an object from the scene Graph from its name
-    const light = sceneElements.sceneGraph.getObjectByName("light");
-
-    // Apply a small displacement
-
-    if (light.position.x >= 10) {
-        delta *= -1;
-    } else if (light.position.x <= -10) {
-        delta *= -1;
-    }
-    light.translateX(delta);
 
     // CONTROLING THE CUBE WITH THE KEYBOARD
 
