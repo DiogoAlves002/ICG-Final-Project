@@ -311,9 +311,13 @@ function load3DObjects(sceneGraph) {
     sceneElements.tiles = tiles;
     
 
-    const planeGeometry = new THREE.PlaneGeometry(planeSize.x, planeSize.y, subdivisions - 1, subdivisions - 1);
-    const planeMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(200, 200, 200)', side: THREE.DoubleSide });
-    const planeObject = new THREE.Mesh(planeGeometry, planeMaterial);
+    var plane = new THREE.Group();
+
+    var backCover = new THREE.PlaneGeometry(planeSize.x, planeSize.y);
+    var backCoverMaterial = new THREE.MeshBasicMaterial({ color: 0x2e9c03 });
+    var backCoverMesh = new THREE.Mesh(backCover, backCoverMaterial);
+    backCoverMesh.position.set(0, 0, -0.1);
+    plane.add(backCoverMesh);
 
     for (let row = 0; row < subdivisions; row++) {
 
@@ -324,7 +328,7 @@ function load3DObjects(sceneGraph) {
         ]);
         const verticalLineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
         const verticalLine = new THREE.Line(verticalLineGeometry, verticalLineMaterial);
-        planeObject.add(verticalLine);
+        plane.add(verticalLine);
 
         // create the horizontal lines that separate the tiles
         const horizontalLineGeometry = new THREE.BufferGeometry().setFromPoints([ // connects two points
@@ -333,12 +337,14 @@ function load3DObjects(sceneGraph) {
         ]);
         const horizontalLineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
         const horizontalLine = new THREE.Line(horizontalLineGeometry, horizontalLineMaterial);
-        planeObject.add(horizontalLine);
+        plane.add(horizontalLine);
 
         // create the tiles and add them to the tiles array
         for (let col = 0; col < subdivisions; col++) {
             const tileGeometry = new THREE.PlaneGeometry(tileSize, planeSize.y / subdivisions);
-            const tileMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(255, 255, 255)', side: THREE.DoubleSide });
+            // lambert material
+            //const tileMaterial = new THREE.MeshLambertMaterial({  });
+            const tileMaterial = new THREE.MeshPhongMaterial({  });
             const single_tile = new THREE.Mesh(tileGeometry, tileMaterial);
             single_tile.position.x = -planeSize.x / 2 + col * tileSize + tileSize / 2;
             single_tile.position.y = -planeSize.y / 2 + row * tileSize + tileSize / 2;
@@ -346,8 +352,8 @@ function load3DObjects(sceneGraph) {
 
             switch (sceneElements.ground[row][col]) {
                 case 0:// grass
-                    tileMaterial.color.set(0x00ff00); // set to green
-                    tileMaterial.originalColor = 0x00ff00;
+                    tileMaterial.color.set(0x2e9c03); // set to green
+                    tileMaterial.originalColor = 0x2e9c03;
 
                     tileMaterial.typeOfGround = 0;
                     break;
@@ -379,9 +385,12 @@ function load3DObjects(sceneGraph) {
             single_tile.castShadow = true;
             single_tile.receiveShadow = true;
 
+            // rotate the tile so its facing up
+            single_tile.rotateOnAxis(new THREE.Vector3(1, 0, 0), Math.PI);
+
             single_tile.index = tiles.length;
             tiles.push(single_tile);
-            planeObject.add(single_tile);
+            plane.add(single_tile)
         }
     }
 
@@ -394,12 +403,11 @@ function load3DObjects(sceneGraph) {
     endingTile.material.originalColor = 0xfc6900;
 
     
-    sceneGraph.add(planeObject);
+    //sceneGraph.add(planeObject);
+    sceneGraph.add(plane);
 
-    // Change orientation of the plane using rotation
-    planeObject.rotateOnAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
-    // Set shadow property
-    planeObject.receiveShadow = true;
+    // rotate the plane so its facing up
+    plane.rotateOnAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
 
 
 
