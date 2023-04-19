@@ -29,6 +29,9 @@ const day_night_cycle = {
         sunLight.position.set(0, 5, 0);
         sunLight.castShadow = true;
 
+        sunLight.shadow.mapSize.width = 2**12; // 4096
+        sunLight.shadow.mapSize.height = 2**12; // 4096
+
         sunObj.add(sunLight);
 
         return sunObj;

@@ -66,6 +66,8 @@ const helper = {
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 
+
+
         // **************************************** //
         // Add the rendered image in the HTML DOM
         // **************************************** //

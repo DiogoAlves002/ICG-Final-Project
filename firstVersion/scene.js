@@ -27,6 +27,10 @@ const sceneElements = {
     endingTile : null,
     path : [],
 
+    towers : [],
+    selectionMenu : [],
+    selectedTowerType : null,
+
     enemies : [],
 
     playerHealth : 10,
@@ -110,23 +114,34 @@ function newCube(x, y, z, size, color) {
     return cube;
 }
 
-function newTower(x, y, z, type){
+function newTower(x, y, z, type, menu){
     let tower = null;
     switch(type){
         case 'small':
             tower =  newTowerSmall(x, y, z);
             tower.damage = 0.1;
+            tower.type = 'small';
             break;
         case 'medium':
             tower = newTowerMedium(x, y, z);
             tower.damage = 0.2;
+            tower.type = 'medium';
             break;
         case 'big':
             tower = newTowerBig(x, y, z);
             tower.damage = 0.4;
+            tower.type = 'big';
             break;
     }
 
+    tower.orientation = 0;
+    tower.rotateOnAxis(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+
+    if (menu){ // this tower is part of the selection menu
+        sceneElements.selectionMenu.push(tower);
+    }else{ // this tower is part of the game
+        sceneElements.towers.push(tower);
+    }
     return tower;
 }
 
@@ -134,23 +149,39 @@ function newTowerSmall(x, y, z){
     const size = 0.3;
     const position_y = size/2;
 
-    return newCube(x, position_y, z, size, 0x58CFFD);
+
+    return newArrow(x, position_y, z, size, 0x58CFFD);
 }
 
 function newTowerMedium(x, y, z){
     const size = 0.5;
     const position_y = size/2;
 
-    return newCube(x, position_y, z, size, 0x7FB366);
+    return newArrow(x, position_y, z, size, 0x7FB366);
 }
 
 function newTowerBig(x, y, z){
     const size = 0.7;
     const position_y = size/2;
 
-    return newCube(x, position_y, z, size, 0x0f4ede);
+    return newArrow(x, position_y, z, size, 0x0f4ede);
 }
 
+
+
+function newArrow(x, y, z, size, color){
+    const arrowGeometry = new THREE.ConeGeometry(size, 1, 4);
+    const arrowMaterial = new THREE.MeshPhongMaterial({ color: color });
+    const arrow = new THREE.Mesh(arrowGeometry, arrowMaterial);
+
+    arrow.position.set(x, y, z);
+    arrow.scale.set(size, size, size);
+
+    arrow.castShadow = true;
+    arrow.receiveShadow = true;
+
+    return arrow;
+}
 
 
 
@@ -253,7 +284,7 @@ function loadStartMenu(sceneGraph){
         const textMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(0, 0, 0)' });
         const text = new THREE.Mesh(textGeometry, textMaterial);
 
-        text.position.set(-1, -0.1, 0.3);
+        text.position.set(-1, -0.15, 0.3);
 
         text.name = "startButtonText"
         sceneGraph.add(text);
@@ -269,11 +300,6 @@ function loadStartMenu(sceneGraph){
 
 
 
-
-
-
-
-//////////////////////////////////////////////////////////////////
 
 
 // Create and insert in the scene graph the models of the 3D scene
@@ -313,11 +339,6 @@ function load3DObjects(sceneGraph) {
 
     var plane = new THREE.Group();
 
-    var backCover = new THREE.PlaneGeometry(planeSize.x, planeSize.y);
-    var backCoverMaterial = new THREE.MeshBasicMaterial({ color: 0x2e9c03 });
-    var backCoverMesh = new THREE.Mesh(backCover, backCoverMaterial);
-    backCoverMesh.position.set(0, 0, -0.1);
-    plane.add(backCoverMesh);
 
     for (let row = 0; row < subdivisions; row++) {
 
@@ -348,7 +369,7 @@ function load3DObjects(sceneGraph) {
             const single_tile = new THREE.Mesh(tileGeometry, tileMaterial);
             single_tile.position.x = -planeSize.x / 2 + col * tileSize + tileSize / 2;
             single_tile.position.y = -planeSize.y / 2 + row * tileSize + tileSize / 2;
-            single_tile.position.z = -0.01;
+            single_tile.position.z = -0.01 ;
 
             switch (sceneElements.ground[row][col]) {
                 case 0:// grass
@@ -381,7 +402,6 @@ function load3DObjects(sceneGraph) {
                     break;
             }
 
-            // ---------- TODO fix aliasing problem --------- // 
             single_tile.castShadow = true;
             single_tile.receiveShadow = true;
 
@@ -389,6 +409,7 @@ function load3DObjects(sceneGraph) {
             single_tile.rotateOnAxis(new THREE.Vector3(1, 0, 0), Math.PI);
 
             single_tile.index = tiles.length;
+            single_tile.towerType = null;
             tiles.push(single_tile);
             plane.add(single_tile)
         }
@@ -408,6 +429,116 @@ function load3DObjects(sceneGraph) {
 
     // rotate the plane so its facing up
     plane.rotateOnAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+
+
+
+
+
+    // ************************** //
+    // Create a wooden board
+    // ************************** //
+
+    var board = new THREE.Group();
+    sceneGraph.add(board);
+
+    const edgeSize = planeSize.x / subdivisions / 2;
+    const baseSize = planeSize.x + edgeSize * 2; // the size of the map + half a tile for each side
+
+    // base
+    const boardBaseGeometry = new THREE.BoxGeometry(baseSize, 0.2, baseSize);
+    const boardBaseMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513, side: THREE.DoubleSide });
+    const boardBaseObject = new THREE.Mesh(boardBaseGeometry, boardBaseMaterial);
+    boardBaseObject.position.y = -0.5;
+    board.add(boardBaseObject);
+
+
+    // i could probably do this with a loop but its kinda tricky and this works
+    const sideHeight = plane.position.y - boardBaseObject.position.y;
+
+    // left
+    const boardSideGeometry = new THREE.BoxGeometry(baseSize, sideHeight, edgeSize);
+    const boardSideMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513, side: THREE.DoubleSide });
+    const boardSideLeftObject = new THREE.Mesh(boardSideGeometry, boardSideMaterial);
+
+    boardSideLeftObject.position.y = board.position.y - sideHeight / 2;
+    boardSideLeftObject.position.x = -baseSize / 2 + edgeSize / 2;
+
+    boardSideLeftObject.rotateOnAxis(new THREE.Vector3(0, 1, 0), Math.PI / 2 * 1);
+    board.add(boardSideLeftObject);
+
+    // right
+
+    const boardSideRightObject = new THREE.Mesh(boardSideGeometry, boardSideMaterial);
+    boardSideRightObject.position.y = board.position.y - sideHeight / 2;
+    boardSideRightObject.position.x = baseSize / 2 - edgeSize / 2;
+
+    boardSideRightObject.rotateOnAxis(new THREE.Vector3(0, 1, 0), Math.PI / 2 * 1);
+    board.add(boardSideRightObject);
+
+
+    // back
+    const boardSidebackObject = new THREE.Mesh(boardSideGeometry, boardSideMaterial);
+
+    boardSidebackObject.position.y = board.position.y - sideHeight / 2;
+    boardSidebackObject.position.z = -baseSize / 2 + edgeSize / 2;
+
+    board.add(boardSidebackObject);
+
+
+    // front
+    const boardSidefrontObject = new THREE.Mesh(boardSideGeometry, boardSideMaterial);
+
+    boardSidefrontObject.position.y = board.position.y - sideHeight / 2;
+    boardSidefrontObject.position.z = baseSize / 2 - edgeSize / 2;
+
+    board.add(boardSidefrontObject);
+
+
+
+
+    // ************************** //
+    // create a tower selection menu
+    // ************************** //
+
+    const towerSelectionMenu = new THREE.Group();
+    sceneGraph.add(towerSelectionMenu);
+
+    // base
+    const towerSelectionMenuGeometry = new THREE.BoxGeometry(tileSize*2, baseSize-tileSize*2, 0.1);
+    const towerSelectionMenuMaterial = new THREE.MeshPhongMaterial({
+        color: 0x8B4513
+    });
+    const towerSelectionMenuObject = new THREE.Mesh(towerSelectionMenuGeometry, towerSelectionMenuMaterial);
+    towerSelectionMenuObject.position.x = baseSize - edgeSize;
+    towerSelectionMenuObject.position.y = 0;
+    towerSelectionMenuObject.position.z = 0;
+    towerSelectionMenuObject.receiveShadow = true;
+
+    towerSelectionMenu.rotateOnAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+    towerSelectionMenu.add(towerSelectionMenuObject);
+
+
+    // small tower
+    const smallTower = newTower(baseSize - edgeSize, 0, 0, "small", true);
+    smallTower.position.y = -1.2;
+    smallTower.position.z = -0.2;
+    towerSelectionMenu.add(smallTower);
+
+    // medium tower
+    const mediumTower = newTower(baseSize - edgeSize, 0, 0, "medium", true);
+    mediumTower.position.y = 0;
+    mediumTower.position.z = -0.3;
+    towerSelectionMenu.add(mediumTower);
+
+    // big tower
+    const bigTower = newTower(baseSize - edgeSize, 0, 0, "big", true);
+    bigTower.position.y = 1.3;
+    bigTower.position.z = -0.4;
+    towerSelectionMenu.add(bigTower);
+
+
+
+
 
 
 
@@ -456,7 +587,7 @@ function load3DObjects(sceneGraph) {
     // NEW - Create a CONVEX HULL
     // ************************** //
 
-    const vertices = []
+    /* const vertices = []
 
     vertices.push(new THREE.Vector3(-1, 0, 1));
     vertices.push(new THREE.Vector3(0, 0, 1));
@@ -475,7 +606,7 @@ function load3DObjects(sceneGraph) {
 
     //sceneGraph.add(convexHull);
 
-    convexHull.castShadow = true;
+    convexHull.castShadow = true; */
 
 }
 
@@ -591,6 +722,8 @@ const onMouseMove = (event) => {
 // ************************** //
 
 const onMouseClick = (event) => {
+    event.preventDefault(); // prevent right clicks from opening context menu
+
     mouseClick.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouseClick.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
@@ -626,18 +759,56 @@ const onMouseClick = (event) => {
         }
 
     }else{ // game
-        const intersects = raycaster.intersectObjects(sceneElements.tiles);
+        
 
-        if (intersects.length > 0) {
-            const tile = intersects[0].object;
+        // check if the user clicked on a tower on the map
+        const intersectsTower = raycaster.intersectObjects(sceneElements.towers);
+        if (intersectsTower.length > 0) {
+            var tower = intersectsTower[0].object;
+            
+            if (event.button == 0){ // left click
+                tower.rotateOnAxis(new THREE.Vector3(0, 0, 1), Math.PI / 2);
+                tower.orientation = (tower.orientation + 1) % 4;
+            }else if (event.button == 2){ // right click
+                tower.rotateOnAxis(new THREE.Vector3(0, 0, 1), - Math.PI / 2);
+                tower.orientation = (tower.orientation + 3) % 4;
+            }
+            //console.log(tower);
+            return;
+        }
+
+
+        // check if the user clicked on a tower in the selection menu
+        const intersectsTowerSelectionMenu = raycaster.intersectObjects(sceneElements.selectionMenu);
+        if (intersectsTowerSelectionMenu.length > 0) {
+            const selectedTower = intersectsTowerSelectionMenu[0].object;
+            sceneElements.selectedTowerType = selectedTower.type;
+            return;
+        }
+
+
+        // check if the user clicked on a tile on the map
+        const intersectsTile = raycaster.intersectObjects(sceneElements.tiles);
+
+        if (intersectsTile.length > 0) {
+            console.log("tile clicked");
+            const tile = intersectsTile[0].object;
 
             if (tile.material.typeOfGround != 0){ // if the tile is not a grass tile
                 return;
             }
 
+            if (sceneElements.selectedTowerType == null){ // if no type of tower is selected
+                return;
+            }
+
+            if (tile.towerType != null){ // if the tile already has a tower
+                return;
+            }
+
             tile.material.color.set(0x0700db);
 
-            const tileSize = tile.geometry.parameters.width - 0.2;
+            //const tileSize = tile.geometry.parameters.width - 0.2;
             
             // the plane is rotated 90 degrees so the y and z coordinates are swapped
             const tilePosition_X = tile.position.x;
@@ -645,18 +816,23 @@ const onMouseClick = (event) => {
             const tilePosition_Z = tile.position.y;
 
 
-            // create a new tower
-            const tower = newTower(tilePosition_X, tilePosition_Y, tilePosition_Z, "big");
-            sceneElements.sceneGraph.add(tower);
+            tile.towerType = sceneElements.selectedTowerType; // flag the tile as having a tower
+            // TODO store tile neighbors in the tower
 
+            // create a new tower
+            const tower = newTower(tilePosition_X, tilePosition_Y, tilePosition_Z, sceneElements.selectedTowerType);
+            sceneElements.sceneGraph.add(tower);
         }
+
     }
 
 
 };
 
 window.addEventListener('mousemove', onMouseMove);
-window.addEventListener('click', onMouseClick);
+
+window.addEventListener('click', onMouseClick); // left click
+window.addEventListener('contextmenu', onMouseClick); // right click
 
 
 let framesText = null;
@@ -794,9 +970,22 @@ function computeFrame(time) {
 
 
 
+        // towers shooting
+        for (let i = 0; i < sceneElements.towers.length; i++) {
+            const tower = sceneElements.towers[i];
+            const towerOrientation = tower.orientation;
+            //console.log(tower, towerOrientation);
+
+
+
+
+        }
+
+
+
         // sun and moon rotation
         const sunAndMoon = sceneElements.sceneGraph.getObjectByName("sunAndMoon");
-        sunAndMoon.rotation.z += 0.001;
+        //sunAndMoon.rotation.z += 0.001;
 
         
     }
