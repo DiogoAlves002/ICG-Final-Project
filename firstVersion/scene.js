@@ -2,6 +2,7 @@
 
 
 
+
 //  Adapted from Daniel Rohmer tutorial
 //
 // 		https://imagecomputing.net/damien.rohmer/teaching/2019_2020/semester_1/MPRI_2-39/practice/threejs/content/000_threejs_tutorial/index.html
@@ -32,6 +33,9 @@ const sceneElements = {
     selectedTowerType : null,
 
     enemies : [],
+    torches : [],
+
+    torchesMenu : [],
 
     playerHealth : 10,
 };
@@ -185,26 +189,120 @@ function newArrow(x, y, z, size, color){
 
 
 
+function newTorch(x, y, z){
+    const size = 0.2;
+    const position_y = size/2;
 
+    let torch = new THREE.Group();
+
+    // Torch Handle
+    const handleHeight = 0.2;
+    const handleWidth = 0.04;
+    const torchHandleGeometry = new THREE.CylinderGeometry(handleWidth, handleWidth, handleHeight, 32);
+    const torchHandleMaterial = new THREE.MeshPhongMaterial({ color: 0xb37120 });
+    const torchHandle = new THREE.Mesh(torchHandleGeometry, torchHandleMaterial);
+
+    torchHandle.position.set(x, position_y+size/2, y+size);
+
+    torchHandle.castShadow = true;
+    torchHandle.receiveShadow = true;
+
+
+    // Torch Head
+    const headHeight = 0.04;
+    const litColor = new THREE.Color(0xffd700);
+    const notLitColor = new THREE.Color(0x5c5a54);
+    const torchHeadGeometry = new THREE.CylinderGeometry(headHeight, headHeight, headHeight, 32);
+    const torchHeadMaterial = new THREE.MeshPhongMaterial({ color: 0x5c5a54 });
+    
+    torchHeadMaterial.emissive = notLitColor ; // object color dispite the scene not having light
+    const torchHead = new THREE.Mesh(torchHeadGeometry, torchHeadMaterial);
+
+    torchHead.notLitColor = notLitColor;
+    torchHead.litColor = litColor;
+
+    torchHead.position.set(x, torchHandle.position.y+handleHeight/2+headHeight/2, y+size);
+
+    torchHead.castShadow = true;
+    torchHead.receiveShadow = true;
+
+
+
+    // light
+    const light = new THREE.PointLight(0xffd700, 1, 100);
+    light.position.set(x, position_y + size + size/10, y+size);
+    light.castShadow = true;
+    light.shadow.mapSize.width = 512/8;  // default
+    light.shadow.mapSize.height = 512/8; // default
+    light.intensity = 0;
+
+    torch.add(torchHandle);
+    torch.add(torchHead);
+    torch.add(light);
+
+    // raycaster doesnt work with groups
+    sceneElements.torchesMenu.push(torchHandle);
+    sceneElements.torchesMenu.push(torchHead);
+
+    torch.lit = false;
+
+
+    return torch;
+}
+
+
+function toggleLights(){
+    // TODO: add lights to towers
+    for (let i = 0; i < sceneElements.torches.length; i++){
+        if (sceneElements.torches[i].lit){
+            sceneElements.torches[i].children[1].material.emissive = sceneElements.torches[i].children[1].notLitColor;
+            sceneElements.torches[i].children[2].intensity = 0;
+            sceneElements.torches[i].lit = false;
+        }else{
+            sceneElements.torches[i].children[1].material.emissive = sceneElements.torches[i].children[1].litColor;
+            sceneElements.torches[i].children[2].intensity = 1;
+            sceneElements.torches[i].lit = true;
+        }
+    }
+}
+
+
+let cenas = 0;
 function newEnemy(x, y, z, type){
+    let enmyWithTorch = new THREE.Group();
     let enemy = null;
+    let torch = null;
+    if (cenas == 0){
+        torch = newTorch(x, y, z);
+        sceneElements.torches.push(torch);
+        cenas = 1; 
+    }
+    
+
     switch(type){
         case 'small':
             enemy =  newEnemySmall(x, y, z);
             enemy.damage = 0.1;
+            enemy.health = 1;
             break;
         case 'medium':
             enemy = newEnemyMedium(x, y, z);
             enemy.damage = 0.2;
+            enemy.health = 2;
             break;
         case 'big':
             enemy = newEnemyBig(x, y, z);
             enemy.damage = 0.4;
+            enemy.health = 4;
             break;
     }
 
     enemy.currentTile = sceneElements.path[0];
     enemy.currentPathTileIndex = sceneElements.path[0].pathIndex;
+    enmyWithTorch.add(enemy);
+    enmyWithTorch.add(torch);
+    sceneElements.sceneGraph.add(enmyWithTorch);
+    //sceneElements.torches.push(torch);
     return enemy;
 
 }
@@ -326,15 +424,25 @@ function load3DObjects(sceneGraph) {
         [0, 0, 6, 7, 8, 0],
         [0, 0, 0, 0, 0, 0],
       ];
+    /* const ground = [
+        [0, 0, 0, 0, 0],
+        [1, 2, 3, 4, 5],
+        [0, 0, 0, 0, 6],
+        [0, 0, 9, 8, 7],
+        [0, 0, 10, 11, 12]
+        
+      ]; */
     sceneElements.ground = ground;
 
-    const planeSize = new THREE.Vector2(6, 6);
+
     const subdivisions = ground.length;
+    const planeSize = new THREE.Vector2(subdivisions, subdivisions);
     const tileSize = planeSize.x / subdivisions;
 
     // create the array to store the tiles
     const tiles = [];
     sceneElements.tiles = tiles;
+    
     
 
     var plane = new THREE.Group();
@@ -422,6 +530,33 @@ function load3DObjects(sceneGraph) {
     const endingTile = sceneElements.path[sceneElements.path.length - 1];
     endingTile.material.color.set(0xfc6900); // set to orange
     endingTile.material.originalColor = 0xfc6900;
+
+
+    // set each tile's neighbors
+    let currentTile = null;
+    let tileNeighbours = [null, null, null, null];
+    let tileAbove = null; let tileBelow = null;
+    let tileLeft = null; let tileRight = null;
+
+    for (let row = 0; row < subdivisions; row++) {
+        for (let col = 0; col < subdivisions; col++) {
+            currentTile = tiles[row * subdivisions + col];
+            tileNeighbours = [null, null, null, null];
+
+            // follows the order of the towers orientation: 0, 1, 2, 3 
+            tileAbove = row > 0 ? tiles[(row - 1) * subdivisions + col] : null;
+            tileLeft = col > 0 ? tiles[row * subdivisions + col - 1] : null;
+            tileBelow = row < subdivisions - 1 ? tiles[(row + 1) * subdivisions + col] : null;
+            tileRight = col < subdivisions - 1 ? tiles[row * subdivisions + col + 1] : null;
+
+            if (tileAbove) tileNeighbours[0] = tileAbove;
+            if (tileLeft) tileNeighbours[1] = tileLeft;
+            if (tileBelow) tileNeighbours[2] = tileBelow;
+            if (tileRight) tileNeighbours[3] = tileRight;
+
+            currentTile.neighbours = tileNeighbours; 
+        }
+    }
 
     
     //sceneGraph.add(planeObject);
@@ -537,6 +672,42 @@ function load3DObjects(sceneGraph) {
     towerSelectionMenu.add(bigTower);
 
 
+    // ************************** //
+    // Create a "settings" menu
+    // ************************** //
+
+    const settingsSelectionMenu = new THREE.Group();
+    sceneGraph.add(settingsSelectionMenu);
+
+    // base
+    const settingsSelectionMenuGeometry = new THREE.BoxGeometry(tileSize*2, baseSize-tileSize*2, 0.1);
+    const settingsSelectionMenuMaterial = new THREE.MeshPhongMaterial({
+        color: 0x8B4513
+    });
+    const settingsSelectionMenuObject = new THREE.Mesh(settingsSelectionMenuGeometry, settingsSelectionMenuMaterial);
+    settingsSelectionMenuObject.position.x = - baseSize + edgeSize;
+    settingsSelectionMenuObject.position.y = 0;
+    settingsSelectionMenuObject.position.z = 0;
+    settingsSelectionMenuObject.receiveShadow = true;
+
+    settingsSelectionMenu.rotateOnAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+    settingsSelectionMenu.add(settingsSelectionMenuObject);
+
+
+    // torch
+    const menuTorch = newTorch(0, 0, 0);
+    menuTorch.name = "toggleTorches";
+    menuTorch.rotateOnAxis(new THREE.Vector3(1, 0, 0), - Math.PI / 2);
+    menuTorch.position.x = -baseSize + edgeSize;
+    //torch.position.y = -1.2;
+    menuTorch.position.z = 0.05;
+    settingsSelectionMenu.add(menuTorch);
+    
+    sceneElements.torches.push(menuTorch);
+
+
+
+
 
 
 
@@ -575,11 +746,31 @@ function load3DObjects(sceneGraph) {
     // Create a sun and moon
     // ************************** //
 
-    const sunAndMoon = day_night_cycle.newSunAndMoon();
+    const sunAndMoon = day_night_cycle.newSunAndMoon(0, baseSize/2+edgeSize*2 , 0);
     sunAndMoon.name = 'sunAndMoon';
     sceneGraph.add(sunAndMoon);
 
 
+
+    // ************************** //
+    // Totally not creating an easter egg
+    // ************************** //
+
+    /* let easterEgg;
+    const loader = new GLTFLoader();
+    loader.load( 'astronaute_among_us.glb', function ( gltf ) {
+        easterEgg = gltf.scene;
+    }, undefined, function ( error ) {
+	    console.error( error );
+    } );
+
+    easterEgg.scale.set(10, 10, 10);
+    easterEgg.position.x = 0;
+    easterEgg.position.y = 2;
+
+    sceneGraph.add(easterEgg); */
+        
+        
     
 
 
@@ -773,7 +964,6 @@ const onMouseClick = (event) => {
                 tower.rotateOnAxis(new THREE.Vector3(0, 0, 1), - Math.PI / 2);
                 tower.orientation = (tower.orientation + 3) % 4;
             }
-            //console.log(tower);
             return;
         }
 
@@ -784,6 +974,13 @@ const onMouseClick = (event) => {
             const selectedTower = intersectsTowerSelectionMenu[0].object;
             sceneElements.selectedTowerType = selectedTower.type;
             return;
+        }
+
+
+        // check if the user clicked on a torch 
+        const settings = raycaster.intersectObjects(sceneElements.torchesMenu);
+        if (settings.length > 0){
+            toggleLights();
         }
 
 
@@ -817,12 +1014,13 @@ const onMouseClick = (event) => {
 
 
             tile.towerType = sceneElements.selectedTowerType; // flag the tile as having a tower
-            // TODO store tile neighbors in the tower
 
-            // create a new tower
             const tower = newTower(tilePosition_X, tilePosition_Y, tilePosition_Z, sceneElements.selectedTowerType);
+            tower.tile = tile;
             sceneElements.sceneGraph.add(tower);
         }
+
+
 
     }
 
@@ -833,6 +1031,7 @@ window.addEventListener('mousemove', onMouseMove);
 
 window.addEventListener('click', onMouseClick); // left click
 window.addEventListener('contextmenu', onMouseClick); // right click
+//window.addEventListener('touchstart', onMouseClick); // touch screen (mobile)
 
 
 let framesText = null;
@@ -917,14 +1116,23 @@ function computeFrame(time) {
         }
         light.translateX(delta);
 
-    }else{
-        
+    } else {
+
         // spawning enemies
         if (TEST_assert_one_enemy_only === 0 & (time % 2000 < 20)) { // every 2 seconds
             const startingPosition = sceneElements.path[0].position;
     
     
             const enemy = newEnemy(startingPosition.x, startingPosition.y, startingPosition.z, 'small');
+            sceneElements.sceneGraph.add(enemy);
+            sceneElements.enemies.push(enemy);
+            TEST_assert_one_enemy_only = 0;
+        }
+
+        if (TEST_assert_one_enemy_only === 0 & (time % 5000 < 20)) { // every 5 seconds
+            const startingPosition = sceneElements.path[0].position;
+
+            const enemy = newEnemy(startingPosition.x, startingPosition.y, startingPosition.z, 'medium');
             sceneElements.sceneGraph.add(enemy);
             sceneElements.enemies.push(enemy);
             TEST_assert_one_enemy_only = 0;
@@ -970,12 +1178,22 @@ function computeFrame(time) {
 
 
 
-        // towers shooting
+        // TODO towers shooting
         for (let i = 0; i < sceneElements.towers.length; i++) {
-            const tower = sceneElements.towers[i];
-            const towerOrientation = tower.orientation;
-            //console.log(tower, towerOrientation);
+            let tower = sceneElements.towers[i];
+            let towerOrientation = tower.orientation;
+            let towerTile = tower.tile;
+            let tileFacing = towerTile.neighbours[towerOrientation];
 
+            if (tileFacing == null) { // check if the tower is facing a tile
+                continue;
+            }
+            if (tileFacing.material.typeOfGround != 3){ // if the tile is not part of the path 
+                continue;
+            }
+
+            tileFacing.material.color = new THREE.Color(0x000f00);
+            
 
 
 
@@ -985,7 +1203,37 @@ function computeFrame(time) {
 
         // sun and moon rotation
         const sunAndMoon = sceneElements.sceneGraph.getObjectByName("sunAndMoon");
-        //sunAndMoon.rotation.z += 0.001;
+        sunAndMoon.rotation.z += Math.PI/1440;
+
+        // attempt on toggling torches automatically based on sun position // todo
+        //console.log("sun", sunAndMoon.rotation.z.toFixed(2), ( Math.PI - Math.PI/4 ).toFixed(2), ( Math.PI/4 ).toFixed(2) );
+        /* if (sunAndMoon.rotation.z.toFixed(2) % ( - Math.PI/4 ).toFixed(2) == 0){ // sunset (more or less)
+            for (let i = 0; i < sceneElements.torches.length; i++) {
+                let torch = sceneElements.torches[i];
+
+                let torchhead = torch.children[1];
+                torchhead.material.emissive = torchhead.litColor;
+
+                let torchlight = torch.children[2];
+                torchlight.intensity = 1;
+            }
+        } 
+        if (sunAndMoon.rotation.z.toFixed(2) % ( Math.PI + Math.PI/4 ).toFixed(2) == 0){ // sunrise (more or less)
+            for (let i = 0; i < sceneElements.torches.length; i++) {
+                let torch = sceneElements.torches[i];
+                
+                let torchhead = torch.children[1];
+                torchhead.material.emissive = torchhead.notLitColor;
+
+                let torchlight = torch.children[2];
+                torchlight.intensity = 0;
+            }
+
+        } */
+
+        let night = Math.PI;
+        let day = 0;
+        //sunAndMoon.rotation.z = night;
 
         
     }

@@ -22,8 +22,8 @@ const day_night_cycle = {
     },
 
 
-    newSun: function(){
-        var  sunObj =  day_night_cycle.newSpaceBall(5, [0, 5, 0], "sun");
+    newSun: function(x, y, z){
+        var  sunObj =  day_night_cycle.newSpaceBall(5, [x, y, z], "sun");
 
         var sunLight = new THREE.PointLight(0xffffff, 1, 100);
         sunLight.position.set(0, 5, 0);
@@ -38,14 +38,14 @@ const day_night_cycle = {
 
     },
 
-    newMoon: function(){
-        return day_night_cycle.newSpaceBall(3, [0, -5, 0], "moon");
+    newMoon: function(x, y, z){
+        return day_night_cycle.newSpaceBall(3, [x, -y, z], "moon");
     },
 
 
-    newSunAndMoon: function(){
-        var sun = day_night_cycle.newSun();
-        var moon = day_night_cycle.newMoon();
+    newSunAndMoon: function(x, y, z){
+        var sun = day_night_cycle.newSun(x, y, z);
+        var moon = day_night_cycle.newMoon(x, y, z);
 
         var sunAndMoon = new THREE.Group();
         sunAndMoon.add(sun);
