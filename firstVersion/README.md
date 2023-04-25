@@ -32,3 +32,5 @@
 	- add enemy and base towers
 	- add sounds and music
 	- turn on lights and to night when the sun goes down
+	- add farol light to towers
+	- refactor code (divide all into separate functions)

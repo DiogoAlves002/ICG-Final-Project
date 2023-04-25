@@ -34,6 +34,7 @@ const sceneElements = {
 
     enemies : [],
     torches : [],
+    lightUp : false,
 
     torchesMenu : [],
 
@@ -215,7 +216,7 @@ function newTorch(x, y, z){
     const torchHeadGeometry = new THREE.CylinderGeometry(headHeight, headHeight, headHeight, 32);
     const torchHeadMaterial = new THREE.MeshPhongMaterial({ color: 0x5c5a54 });
     
-    torchHeadMaterial.emissive = notLitColor ; // object color dispite the scene not having light
+    torchHeadMaterial.emissive = (sceneElements.lightUp) ? litColor : notLitColor; // object color dispite the scene not having light
     const torchHead = new THREE.Mesh(torchHeadGeometry, torchHeadMaterial);
 
     torchHead.notLitColor = notLitColor;
@@ -229,12 +230,12 @@ function newTorch(x, y, z){
 
 
     // light
-    const light = new THREE.PointLight(0xffd700, 1, 100);
+    const light = new THREE.PointLight(0xffd700, 1, 1.5);
     light.position.set(x, position_y + size + size/10, y+size);
     light.castShadow = true;
     light.shadow.mapSize.width = 512/8;  // default
     light.shadow.mapSize.height = 512/8; // default
-    light.intensity = 0;
+    light.intensity = (sceneElements.lightUp) ? 1 : 0;
 
     torch.add(torchHandle);
     torch.add(torchHead);
@@ -244,7 +245,7 @@ function newTorch(x, y, z){
     sceneElements.torchesMenu.push(torchHandle);
     sceneElements.torchesMenu.push(torchHead);
 
-    torch.lit = false;
+    torch.lit = (sceneElements.lightUp) ? true : false;
 
 
     return torch;
@@ -258,10 +259,12 @@ function toggleLights(){
             sceneElements.torches[i].children[1].material.emissive = sceneElements.torches[i].children[1].notLitColor;
             sceneElements.torches[i].children[2].intensity = 0;
             sceneElements.torches[i].lit = false;
+            sceneElements.lightUp = false;
         }else{
             sceneElements.torches[i].children[1].material.emissive = sceneElements.torches[i].children[1].litColor;
             sceneElements.torches[i].children[2].intensity = 1;
             sceneElements.torches[i].lit = true;
+            sceneElements.lightUp = true;
         }
     }
 }
@@ -269,15 +272,10 @@ function toggleLights(){
 
 let cenas = 0;
 function newEnemy(x, y, z, type){
-    let enmyWithTorch = new THREE.Group();
+    let enemyWithTorch = new THREE.Group();
     let enemy = null;
-    let torch = null;
-    if (cenas == 0){
-        torch = newTorch(x, y, z);
-        sceneElements.torches.push(torch);
-        cenas = 1; 
-    }
-    
+    let torch = newTorch(x, y, z);
+
 
     switch(type){
         case 'small':
@@ -289,21 +287,26 @@ function newEnemy(x, y, z, type){
             enemy = newEnemyMedium(x, y, z);
             enemy.damage = 0.2;
             enemy.health = 2;
+            torch.position.z = 0.1;
+            torch.position.y = 0.2;
             break;
         case 'big':
             enemy = newEnemyBig(x, y, z);
             enemy.damage = 0.4;
             enemy.health = 4;
+            torch.position.z = 0.2;
+            torch.position.y = 0.4;
             break;
     }
 
     enemy.currentTile = sceneElements.path[0];
     enemy.currentPathTileIndex = sceneElements.path[0].pathIndex;
-    enmyWithTorch.add(enemy);
-    enmyWithTorch.add(torch);
-    sceneElements.sceneGraph.add(enmyWithTorch);
-    //sceneElements.torches.push(torch);
-    return enemy;
+    enemyWithTorch.add(enemy);
+    enemyWithTorch.add(torch);
+    
+    sceneElements.sceneGraph.add(enemyWithTorch);
+    sceneElements.torches.push(torch);
+    return enemyWithTorch;
 
 }
 
@@ -437,7 +440,7 @@ function load3DObjects(sceneGraph) {
 
     const subdivisions = ground.length;
     const planeSize = new THREE.Vector2(subdivisions, subdivisions);
-    const tileSize = planeSize.x / subdivisions;
+    const tileSize = 1;
 
     // create the array to store the tiles
     const tiles = [];
@@ -1119,7 +1122,7 @@ function computeFrame(time) {
     } else {
 
         // spawning enemies
-        if (TEST_assert_one_enemy_only === 0 & (time % 2000 < 20)) { // every 2 seconds
+        if (TEST_assert_one_enemy_only === 0 & (time % 2000 < 20) & (time % 5000 >= 20)) { // every 2 seconds
             const startingPosition = sceneElements.path[0].position;
     
     
@@ -1129,7 +1132,7 @@ function computeFrame(time) {
             TEST_assert_one_enemy_only = 0;
         }
 
-        if (TEST_assert_one_enemy_only === 0 & (time % 5000 < 20)) { // every 5 seconds
+        if (TEST_assert_one_enemy_only === 0 & (time % 5000 < 20) & (time % 10000 >= 20)) { // every 5 seconds
             const startingPosition = sceneElements.path[0].position;
 
             const enemy = newEnemy(startingPosition.x, startingPosition.y, startingPosition.z, 'medium');
@@ -1137,10 +1140,22 @@ function computeFrame(time) {
             sceneElements.enemies.push(enemy);
             TEST_assert_one_enemy_only = 0;
         }
+
+        if (TEST_assert_one_enemy_only === 0 & (time % 10000 < 20)) { // every 10 seconds
+            const startingPosition = sceneElements.path[0].position;
+
+            const enemy = newEnemy(startingPosition.x, startingPosition.y, startingPosition.z, 'big');
+            sceneElements.sceneGraph.add(enemy);
+            sceneElements.enemies.push(enemy);
+            TEST_assert_one_enemy_only = 0;
+        }
     
         // moving enemies towards the end of the path
         for (let i = 0; i < sceneElements.enemies.length; i++) {
-            const enemy = sceneElements.enemies[i];
+            const enemyWithTorch = sceneElements.enemies[i];
+
+            const enemy = enemyWithTorch.children[0];
+            const torch = enemyWithTorch.children[1];
     
             
             const nextPathTileIndex = enemy.currentPathTileIndex + 1;
@@ -1148,7 +1163,7 @@ function computeFrame(time) {
                 decreasePlayerHealth(enemy.damage);
     
                 sceneElements.enemies.splice(i, 1); // remove enemy
-                sceneElements.sceneGraph.remove(enemy);
+                sceneElements.sceneGraph.remove(enemyWithTorch);
                 continue;
             }
             const nextPathTile = sceneElements.path[nextPathTileIndex];
@@ -1158,16 +1173,24 @@ function computeFrame(time) {
     
     
             if (direction_x.toFixed(2) > 0) {
-                enemy.translateX(step);
+                //enemyWithTorch.translateX(step);
+                enemy.position.x += step;
+                torch.position.x += step;
             } 
             else if (direction_x.toFixed(2) < 0) {
-                enemy.translateX(-step);
+                //enemyWithTorch.translateX(-step);
+                enemy.position.x -= step;
+                torch.position.x -= step;
             }
             if (direction_z.toFixed(2) > 0) {
-                enemy.translateZ(step);
+                //enemyWithTorch.translateZ(step);
+                enemy.position.z += step;
+                torch.position.z += step;
             }
             else if (direction_z.toFixed(2) < 0) {
-                enemy.translateZ(-step);
+                //enemyWithTorch.translateZ(-step);
+                enemy.position.z -= step;
+                torch.position.z -= step;
             }
     
             // check if the enemy has reached the center of the next tile
@@ -1233,7 +1256,7 @@ function computeFrame(time) {
 
         let night = Math.PI;
         let day = 0;
-        //sunAndMoon.rotation.z = night;
+        sunAndMoon.rotation.z = night;
 
         
     }
