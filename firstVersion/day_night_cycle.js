@@ -22,8 +22,12 @@ const day_night_cycle = {
     },
 
 
-    newSun: function(x, y, z){
+    newSun: function(x, y, z, hasLight){
         var  sunObj =  day_night_cycle.newSpaceBall(5, [x, y, z], "sun");
+
+        if (hasLight == false){
+            return sunObj;
+        }
 
         var sunLight = new THREE.PointLight(0xffffff, 1, 100);
         sunLight.position.set(0, 5, 0);
@@ -44,7 +48,7 @@ const day_night_cycle = {
 
 
     newSunAndMoon: function(x, y, z){
-        var sun = day_night_cycle.newSun(x, y, z);
+        var sun = day_night_cycle.newSun(x, y, z, true);
         var moon = day_night_cycle.newMoon(x, y, z);
 
         var sunAndMoon = new THREE.Group();

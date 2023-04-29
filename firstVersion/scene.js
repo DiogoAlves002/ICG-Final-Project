@@ -37,8 +37,11 @@ const sceneElements = {
     lightUp : false,
 
     torchesMenu : [],
+    settingsMenu : [],
 
     playerHealth : 10,
+    playerCoins : 5,
+    towersCost : {},
 };
 
 
@@ -124,17 +127,20 @@ function newTower(x, y, z, type, menu){
     switch(type){
         case 'small':
             tower =  newTowerSmall(x, y, z);
-            tower.damage = 0.1;
+            tower.damage = 0.005;
+            tower.cost = 1;
             tower.type = 'small';
             break;
         case 'medium':
             tower = newTowerMedium(x, y, z);
-            tower.damage = 0.2;
+            tower.damage = 0.02;
+            tower.cost = 3;
             tower.type = 'medium';
             break;
         case 'big':
             tower = newTowerBig(x, y, z);
-            tower.damage = 0.4;
+            tower.damage = 0.04;
+            tower.cost = 5;
             tower.type = 'big';
             break;
     }
@@ -256,13 +262,13 @@ function toggleLights(){
     // TODO: add lights to towers
     for (let i = 0; i < sceneElements.torches.length; i++){
         if (sceneElements.torches[i].lit){
-            sceneElements.torches[i].children[1].material.emissive = sceneElements.torches[i].children[1].notLitColor;
-            sceneElements.torches[i].children[2].intensity = 0;
+            sceneElements.torches[i].children[1].material.emissive = sceneElements.torches[i].children[1].notLitColor; // torch head color
+            sceneElements.torches[i].children[2].intensity = 0; // torch light
             sceneElements.torches[i].lit = false;
             sceneElements.lightUp = false;
         }else{
-            sceneElements.torches[i].children[1].material.emissive = sceneElements.torches[i].children[1].litColor;
-            sceneElements.torches[i].children[2].intensity = 1;
+            sceneElements.torches[i].children[1].material.emissive = sceneElements.torches[i].children[1].litColor; // torch head color
+            sceneElements.torches[i].children[2].intensity = 1; // torch light
             sceneElements.torches[i].lit = true;
             sceneElements.lightUp = true;
         }
@@ -282,11 +288,13 @@ function newEnemy(x, y, z, type){
             enemy =  newEnemySmall(x, y, z);
             enemy.damage = 0.1;
             enemy.health = 1;
+            enemy.coins = 1;
             break;
         case 'medium':
             enemy = newEnemyMedium(x, y, z);
             enemy.damage = 0.2;
             enemy.health = 2;
+            enemy.coins = 3;
             torch.position.z = 0.1;
             torch.position.y = 0.2;
             break;
@@ -294,12 +302,14 @@ function newEnemy(x, y, z, type){
             enemy = newEnemyBig(x, y, z);
             enemy.damage = 0.4;
             enemy.health = 4;
+            enemy.coins = 5;
             torch.position.z = 0.2;
             torch.position.y = 0.4;
             break;
     }
 
-    enemy.currentTile = sceneElements.path[0];
+    enemy.currentTile = sceneElements.path[0]; // this is used to calculate its movement
+    enemy.tileUnder = sceneElements.path[0]; // this is used to calculate if its being shot
     enemy.currentPathTileIndex = sceneElements.path[0].pathIndex;
     enemyWithTorch.add(enemy);
     enemyWithTorch.add(torch);
@@ -358,10 +368,47 @@ function decreasePlayerHealth(value){
 //***************************//
 function loadStartMenu(sceneGraph){
 
-    // startGameButton
+    // title
     const color = 'rgb(255, 255, 255)';
-    const startButton = newCube(0, 0, 0, 0.8, color);
-    startButton.scale.x = 3;
+    const titleCube = newCube(0, 1, 0, 0.8, color);
+    titleCube.scale.x = 4.5;
+    titleCube.name = "titleCube";
+
+    sceneGraph.add(titleCube);
+    sceneElements.startMenu.push(titleCube);
+
+    // titleText
+
+    const fontLoader = new THREE.FontLoader();
+    fontLoader.load('./font.json', function (droidFont) {
+        const textGeometry = new THREE.TextGeometry('Tower Defense Game', {
+            font: droidFont,
+            size: 0.3,
+            height: 0.1,
+            curveSegments: 12,
+            bevelEnabled: true,
+            bevelThickness: 0.03,
+            bevelSize: 0.02,
+            bevelSegments: 5
+        });
+        const textMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(0, 0, 0)' });
+        const text = new THREE.Mesh(textGeometry, textMaterial);
+
+        text.position.set(-2, 0.85, 0.3);
+
+        text.name = "titleText";
+        text.button = titleCube;
+        sceneGraph.add(text);
+        sceneElements.startMenu.push(text);
+    });
+
+
+
+
+    // startGameButton
+    
+    const startButton = newCube(-0.8, 0, 0, 0.8, color);
+    startButton.scale.x = 2.5;
     startButton.name = "startButton";
     startButton.originalColor = color;
 
@@ -369,7 +416,7 @@ function loadStartMenu(sceneGraph){
     sceneElements.startMenu.push(startButton);
 
     // startGameText
-    const fontLoader = new THREE.FontLoader();
+    //const fontLoader = new THREE.FontLoader();
     fontLoader.load('./font.json', function (droidFont) {
         const textGeometry = new THREE.TextGeometry('Start Game', {
             font: droidFont,
@@ -379,15 +426,49 @@ function loadStartMenu(sceneGraph){
             bevelEnabled: true,
             bevelThickness: 0.03,
             bevelSize: 0.02,
-            bevelOffset: 0,
             bevelSegments: 5
         });
         const textMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(0, 0, 0)' });
         const text = new THREE.Mesh(textGeometry, textMaterial);
 
-        text.position.set(-1, -0.15, 0.3);
+        text.position.set(-1.8, -0.15, 0.3);
 
         text.name = "startButtonText"
+        text.button = startButton;
+        sceneGraph.add(text);
+        sceneElements.startMenu.push(text);
+    });
+
+
+
+    // githubButton
+    const githubButton = newCube(1.3, 0, 0, 0.8, color);
+    githubButton.scale.x = 1.5;
+    githubButton.name = "githubButton";
+    githubButton.originalColor = color;
+
+    sceneGraph.add(githubButton);
+    sceneElements.startMenu.push(githubButton);
+
+    // githubText
+    fontLoader.load('./font.json', function (droidFont) {
+        const textGeometry = new THREE.TextGeometry('Github', {
+            font: droidFont,
+            size: 0.3,
+            height: 0.1,
+            curveSegments: 12,
+            bevelEnabled: true,
+            bevelThickness: 0.03,
+            bevelSize: 0.02,
+            bevelSegments: 5
+        });
+        const textMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(0, 0, 0)' });
+        const text = new THREE.Mesh(textGeometry, textMaterial);
+
+        text.position.set(0.7, -0.15, 0.3);
+
+        text.name = "githubButtonText"
+        text.button = githubButton;
         sceneGraph.add(text);
         sceneElements.startMenu.push(text);
     });
@@ -406,10 +487,7 @@ function loadStartMenu(sceneGraph){
 // Create and insert in the scene graph the models of the 3D scene
 function load3DObjects(sceneGraph) {
 
-    // get spot light by its name "ligth"
     const spotLight = sceneGraph.getObjectByName("light");
-    // move spot light back
-    spotLight.position.set(-5, 8, 10);
     sceneElements.sceneGraph.remove(spotLight);
 
 
@@ -661,18 +739,21 @@ function load3DObjects(sceneGraph) {
     smallTower.position.y = -1.2;
     smallTower.position.z = -0.2;
     towerSelectionMenu.add(smallTower);
+    sceneElements.towersCost["small"] = smallTower.cost;
 
     // medium tower
     const mediumTower = newTower(baseSize - edgeSize, 0, 0, "medium", true);
     mediumTower.position.y = 0;
     mediumTower.position.z = -0.3;
     towerSelectionMenu.add(mediumTower);
+    sceneElements.towersCost["medium"] = mediumTower.cost;
 
     // big tower
     const bigTower = newTower(baseSize - edgeSize, 0, 0, "big", true);
     bigTower.position.y = 1.3;
     bigTower.position.z = -0.4;
     towerSelectionMenu.add(bigTower);
+    sceneElements.towersCost["big"] = bigTower.cost;
 
 
     // ************************** //
@@ -702,11 +783,33 @@ function load3DObjects(sceneGraph) {
     menuTorch.name = "toggleTorches";
     menuTorch.rotateOnAxis(new THREE.Vector3(1, 0, 0), - Math.PI / 2);
     menuTorch.position.x = -baseSize + edgeSize;
-    //torch.position.y = -1.2;
     menuTorch.position.z = 0.05;
-    settingsSelectionMenu.add(menuTorch);
     
+    settingsSelectionMenu.add(menuTorch);
     sceneElements.torches.push(menuTorch);
+
+
+    // sun
+    const menuSun = day_night_cycle.newSun(0, 0, 0, false);
+    menuSun.name = "toggleDay";
+    menuSun.position.x = -baseSize + edgeSize;
+    menuSun.position.y = -1.5;
+    menuSun.position.z = -0.5;
+
+    settingsSelectionMenu.add(menuSun);
+    sceneElements.settingsMenu.push(menuSun);
+
+
+    // moon
+    const menuMoon = day_night_cycle.newMoon(0, 0, 0);
+    menuMoon.name = "toggleNight";
+    menuMoon.position.x = -baseSize + edgeSize;
+    menuMoon.position.y = -0.4;
+    menuMoon.position.z = -0.3;
+
+    settingsSelectionMenu.add(menuMoon);
+    sceneElements.settingsMenu.push(menuMoon);
+    
 
 
 
@@ -813,6 +916,7 @@ function load3DObjects(sceneGraph) {
 const mouseMove = new THREE.Vector2();
 const mouseClick = new THREE.Vector2();
 const raycaster = new THREE.Raycaster();
+let hoveredButton = null; // in the main menu, keep track of the currently hovered button
 let hoveredTile = null; // keep track of the currently hovered tile
 let tileColor = null;
 let tile = null;
@@ -830,23 +934,39 @@ const onMouseMove = (event) => {
 
     raycaster.setFromCamera(mouseMove, sceneElements.camera);
 
-    var startButton = sceneElements.startMenu[0];
 
     if (sceneElements.isStartMenuOn == true){ // main menu
         const intersects = raycaster.intersectObjects(sceneElements.startMenu);
         
+        // TODO sometimes overing over a text doesnt change the color of the button
         if (intersects.length > 0){
             const object = intersects[0].object;
-            if (object.name == "startButton" || object.name == "startButtonText"){
-                startButton.material.color.set(0xff0000);
-            }else{
-                const originalColor = startButton.originalColor;
-                startButton.material.color.set(originalColor);
+            
+            let currentButton = object;
+            if (object.button){ // its a text
+                currentButton = object.button; // get the button
             }
+
+            if (currentButton == hoveredButton){
+                return;
+            }
+
+            if (currentButton.name != "titleCube"){ // ignore the title
+                currentButton.material.color.set(0xff0000);
+            }
+
+            if (hoveredButton){
+                const originalColor = hoveredButton.originalColor;
+                hoveredButton.material.color.set(originalColor);
+            }
+            hoveredButton = currentButton;
+
         }else{
             // get object by name attribute
-            const originalColor = startButton.originalColor;
-            startButton.material.color.set(originalColor);
+            if (hoveredButton){
+                const originalColor = hoveredButton.originalColor;
+                hoveredButton.material.color.set(originalColor);
+            }
         }
 
 
@@ -855,7 +975,6 @@ const onMouseMove = (event) => {
         // change color of the closest object intersecting the raycaster
         if (intersects.length > 0) {
             tile = intersects[0].object;
-    
     
             if (tile !== hoveredTile) {
                 if (hoveredTile) {
@@ -932,24 +1051,19 @@ const onMouseClick = (event) => {
         if (intersects.length > 0){
             const object = intersects[0].object;
             if (object.name == "startButton" || object.name == "startButtonText"){
-                startButton.material.color.set(0x00ff00);
-
                 sceneElements.isStartMenuOn = false;
 
-                sceneElements.sceneGraph.remove(sceneElements.startMenu[0]);
-                sceneElements.sceneGraph.remove(sceneElements.startMenu[1]);
+                for (let menuElement of sceneElements.startMenu){
+                    sceneElements.sceneGraph.remove(menuElement);
+                }
                 sceneElements.startMenu = [];
 
 
                 load3DObjects(sceneElements.sceneGraph);
-            }else{
-                const originalColor = startButton.originalColor;
-                startButton.material.color.set(originalColor);
+            }else if (object.name == "githubButtonText" || object.name == "githubButton"){
+                let url = "https://github.com/DiogoAlves002/ICG-Final-Project";
+                window.open(url);
             }
-        }else{
-            // get object by name attribute
-            const originalColor = startButton.originalColor;
-            startButton.material.color.set(originalColor);
         }
 
     }else{ // game
@@ -981,9 +1095,31 @@ const onMouseClick = (event) => {
 
 
         // check if the user clicked on a torch 
-        const settings = raycaster.intersectObjects(sceneElements.torchesMenu);
-        if (settings.length > 0){
+        const torchSettings = raycaster.intersectObjects(sceneElements.torchesMenu);
+        if (torchSettings.length > 0){
             toggleLights();
+            return;
+        }
+
+
+        // check if the user clicked on a setting
+        const settings = raycaster.intersectObjects(sceneElements.settingsMenu);
+        if (settings.length > 0){
+            const setting = settings[0].object;
+            const sunAndMoon = sceneElements.sceneGraph.getObjectByName("sunAndMoon");
+            
+            if (setting.name == "toggleDay"){
+                let day = Math.PI + Math.PI / 2;
+                sunAndMoon.rotation.z = day;
+                return;
+            }
+
+            if (setting.name == "toggleNight"){
+                let night = Math.PI / 2;
+                sunAndMoon.rotation.z = night;
+                return;
+            }
+
         }
 
 
@@ -1003,8 +1139,14 @@ const onMouseClick = (event) => {
             }
 
             if (tile.towerType != null){ // if the tile already has a tower
+                return; // TODO rotate the tower instead
+            }
+
+            let towerCost = sceneElements.towersCost[sceneElements.selectedTowerType];
+            if (sceneElements.playerCoins < towerCost){
                 return;
             }
+            sceneElements.playerCoins -= towerCost;
 
             tile.material.color.set(0x0700db);
 
@@ -1096,6 +1238,7 @@ function computeFrame(time) {
     frames++;
     if (frames % 100 == 0){
         console.log("frames: " + frames/time*1000);
+        console.log("Coins: " + sceneElements.playerCoins);
     }
 
     //console.log("frames: " + framesText);
@@ -1168,40 +1311,52 @@ function computeFrame(time) {
             }
             const nextPathTile = sceneElements.path[nextPathTileIndex];
             
-            const direction_x = nextPathTile.position.x - enemy.position.x;
-            const direction_z = nextPathTile.position.y - enemy.position.z;
+            let direction_x = (nextPathTile.position.x - enemy.position.x).toFixed(2);
+            let direction_z = (nextPathTile.position.y - enemy.position.z).toFixed(2);
     
     
-            if (direction_x.toFixed(2) > 0) {
-                //enemyWithTorch.translateX(step);
+            if (direction_x > 0) {
                 enemy.position.x += step;
                 torch.position.x += step;
             } 
-            else if (direction_x.toFixed(2) < 0) {
-                //enemyWithTorch.translateX(-step);
+            else if (direction_x < 0) {
                 enemy.position.x -= step;
                 torch.position.x -= step;
             }
-            if (direction_z.toFixed(2) > 0) {
-                //enemyWithTorch.translateZ(step);
+            if (direction_z > 0) {
                 enemy.position.z += step;
                 torch.position.z += step;
             }
-            else if (direction_z.toFixed(2) < 0) {
-                //enemyWithTorch.translateZ(-step);
+            else if (direction_z < 0) {
                 enemy.position.z -= step;
                 torch.position.z -= step;
             }
     
             // check if the enemy has reached the center of the next tile
-            if (direction_x.toFixed(2) == 0 && direction_z.toFixed(2) == 0) {
+            if (direction_x == 0 && direction_z == 0) {
                 enemy.currentPathTileIndex++;
+            }
+
+
+
+            // set the tile they're on right now (for the towers to shoot at)
+            const distanceBetweenTwoTiles = 1;
+            const middleOfTwoTiles = (distanceBetweenTwoTiles/2).toFixed(2);
+            (direction_x < 0) ? direction_x = -direction_x : direction_x = direction_x;
+            (direction_z < 0) ? direction_z = -direction_z : direction_z = direction_z;
+            if (direction_x == middleOfTwoTiles){ // it passed the middle of the tiles
+                enemy.tileUnder = nextPathTile; 
+                continue; // no need to check the z direction
+            }
+
+            if (direction_z == middleOfTwoTiles){ // it passed the middle of the tiles
+                enemy.tileUnder = nextPathTile; 
             }
         }
 
 
 
-        // TODO towers shooting
+        // TODO animate towers shooting
         for (let i = 0; i < sceneElements.towers.length; i++) {
             let tower = sceneElements.towers[i];
             let towerOrientation = tower.orientation;
@@ -1211,11 +1366,28 @@ function computeFrame(time) {
             if (tileFacing == null) { // check if the tower is facing a tile
                 continue;
             }
-            if (tileFacing.material.typeOfGround != 3){ // if the tile is not part of the path 
+
+            let tileGroundType = tileFacing.material.typeOfGround;
+            if (tileGroundType != 3 & tileGroundType != 1){ // if the tile is not part of the path 
                 continue;
             }
 
             tileFacing.material.color = new THREE.Color(0x000f00);
+
+            for (let enemyWithTorch of sceneElements.enemies) {
+                let enemy = enemyWithTorch.children[0];
+                if (enemy.tileUnder == tileFacing) {
+                    let randomCOlor = Math.random() * 0xffffff;
+                    enemy.material.color = new THREE.Color(randomCOlor);
+                    enemy.health -= tower.damage;
+
+                    if (enemy.health <= 0) {
+                        sceneElements.playerCoins += enemy.coins;
+                        sceneElements.enemies.splice(sceneElements.enemies.indexOf(enemyWithTorch), 1);
+                        sceneElements.sceneGraph.remove(enemyWithTorch);
+                    }
+                }
+            }
             
 
 
@@ -1228,7 +1400,7 @@ function computeFrame(time) {
         const sunAndMoon = sceneElements.sceneGraph.getObjectByName("sunAndMoon");
         sunAndMoon.rotation.z += Math.PI/1440;
 
-        // attempt on toggling torches automatically based on sun position // todo
+        // attempt on toggling torches automatically based on sun position // TODO 
         //console.log("sun", sunAndMoon.rotation.z.toFixed(2), ( Math.PI - Math.PI/4 ).toFixed(2), ( Math.PI/4 ).toFixed(2) );
         /* if (sunAndMoon.rotation.z.toFixed(2) % ( - Math.PI/4 ).toFixed(2) == 0){ // sunset (more or less)
             for (let i = 0; i < sceneElements.torches.length; i++) {
@@ -1256,7 +1428,7 @@ function computeFrame(time) {
 
         let night = Math.PI;
         let day = 0;
-        sunAndMoon.rotation.z = night;
+        //sunAndMoon.rotation.z = night;
 
         
     }
