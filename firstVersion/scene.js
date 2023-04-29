@@ -1174,9 +1174,9 @@ const onMouseClick = (event) => {
 
 window.addEventListener('mousemove', onMouseMove);
 
+window.addEventListener('touchstart', onMouseClick); // touch screen (mobile)
 window.addEventListener('click', onMouseClick); // left click
 window.addEventListener('contextmenu', onMouseClick); // right click
-window.addEventListener('touchstart', onMouseClick); // touch screen (mobile)
 
 
 let framesText = null;
