@@ -6,6 +6,7 @@
 
 ### features
 	- starting menu with link to github
+	- pause menu 	
 	- orbit controls
 	- select towers to buy
 	- add towers to chosen tiles
@@ -16,16 +17,17 @@
 	- health bar indicating player's health
 	- orbiting sun as main light source
 	- enemies carry torches toggleble on click
+	- fps counter
 
 
-### stuff to add (not necessarily by order)
-	- add farol light to towers
-	- add camera pov to towers
-	- add game over screen
-	- add more realistic materials to sun, moon and table
-	- add controls helper
-	- fix fps counter and add currency counter
-	- design towers and enemies 
+### stuff to add
+	1 - add controls helper to pause menu
+	2 - add camera pov to towers
+	3 - add more realistic materials to sun, moon and table
+	4 - add farol light to towers
+	5 - design towers and enemies 
+	6 - add currency counter
+	7 - add game over screen
 
 
 

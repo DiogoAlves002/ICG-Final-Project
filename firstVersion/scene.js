@@ -17,6 +17,10 @@ const sceneElements = {
     isStartMenuOn : true,
     startMenu : [],
 
+    isGamePaused : false,
+    pauseBlurPlane : null,
+    pauseMenu : null,
+
     sceneGraph: null,
     camera: null,
     control: null,
@@ -59,7 +63,7 @@ loadStartMenu(sceneElements.sceneGraph);
 window.addEventListener('resize', resizeWindow);
 
 //To keep track of the keyboard - WASD
-var keyD = false, keyA = false, keyS = false, keyW = false;
+let keyD = false, keyA = false, keyS = false, keyW = false;
 document.addEventListener('keydown', onDocumentKeyDown, false);
 document.addEventListener('keyup', onDocumentKeyUp, false);
 
@@ -103,6 +107,9 @@ function onDocumentKeyUp(event) {
             break;
         case 87: //w
             keyW = false;
+            break;
+        case 27: //esc
+            sceneElements.isGamePaused = ! sceneElements.isGamePaused; // toggle
             break;
     }
 }
@@ -344,10 +351,24 @@ function newEnemyBig(x, y, z){
 
 
 function decreasePlayerHealth(value){
-    sceneElements.playerHealth -= value * 10;
+    let health = sceneElements.playerHealth;
+    let healthBar = sceneElements.sceneGraph.getObjectByName("playerHealthBar");
+    let healthBarScale = healthBar.scale;
 
-    const healthBar = sceneElements.sceneGraph.getObjectByName("playerHealthBar");
-    const healthBarScale = healthBar.scale;
+
+    if (health - value * 10 <= 0){ // game over
+        sceneElements.playerHealth = 0;
+
+        healthBarScale.x = 0;
+        let healthBarCase= sceneElements.sceneGraph.getObjectByName("playerHealthBarCase");
+        let healthBarCaseScale = healthBarCase.scale.x;
+ 
+        healthBar.position.x = -healthBarCaseScale - healthBarCaseScale/2 ;
+        return;
+    }
+
+    
+    sceneElements.playerHealth -= value * 10;
 
     healthBarScale.x -= value;
     healthBar.position.x -= value*1.5;
@@ -364,7 +385,7 @@ function decreasePlayerHealth(value){
 
 
 //***************************//
-// start menu
+// load start menu
 //***************************//
 function loadStartMenu(sceneGraph){
 
@@ -472,6 +493,9 @@ function loadStartMenu(sceneGraph){
         sceneGraph.add(text);
         sceneElements.startMenu.push(text);
     });
+
+
+
 
 }
 
@@ -844,6 +868,7 @@ function load3DObjects(sceneGraph) {
     healthBarCaseObject.position.x = 0;
     healthBarCaseObject.position.y = 2.8;
     healthBarCaseObject.position.z = 0;
+    healthBarCaseObject.name = 'playerHealthBarCase';
     sceneGraph.add(healthBarCaseObject);
 
 
@@ -859,22 +884,31 @@ function load3DObjects(sceneGraph) {
 
 
     // ************************** //
-    // Totally not creating an easter egg
+    // Just testing stuff
     // ************************** //
 
-    /* let easterEgg;
-    const loader = new GLTFLoader();
-    loader.load( 'astronaute_among_us.glb', function ( gltf ) {
-        easterEgg = gltf.scene;
-    }, undefined, function ( error ) {
-	    console.error( error );
-    } );
-
-    easterEgg.scale.set(10, 10, 10);
-    easterEgg.position.x = 0;
-    easterEgg.position.y = 2;
-
-    sceneGraph.add(easterEgg); */
+    const loader = new THREE.GLTFLoader();
+    
+    // load a glb file
+    loader.load(
+      'model.glb',
+      function (gltf) {
+    
+        const loadscene = gltf.scene; // get the loaded scene
+        loadscene.position.x = 0;
+        loadscene.scale.set(0.00001, 0.00001, 0.00001);
+        loadscene.position.y = -0.2;
+        loadscene.name= "nothingToSeeHere";
+        sceneGraph.add(loadscene); // add the scene to your scene graph
+      },
+      function (xhr) {
+        // called while loading is progressing
+      },
+      function (error) {
+        // called if an error occurs while loading
+        console.error('An error happened', error);
+      }
+    );
         
         
     
@@ -905,6 +939,21 @@ function load3DObjects(sceneGraph) {
 
     convexHull.castShadow = true; */
 
+
+
+
+    // ************************** //
+    // create a pause plane
+    // ************************** //
+
+    const pauseBlurPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry( 2, 2, 2, 2 ),
+        new THREE.MeshBasicMaterial( {color: 0x606060} )
+    );
+    pauseBlurPlane.name= "pauseBlurPlane";
+    pauseBlurPlane.material.transparent = true;
+    pauseBlurPlane.material.opacity = 0.8;
+    sceneElements.pauseBlurPlane = pauseBlurPlane;
 }
 
 
@@ -936,12 +985,17 @@ const onMouseMove = (event) => {
 
 
     if (sceneElements.isStartMenuOn == true){ // main menu
+
         const intersects = raycaster.intersectObjects(sceneElements.startMenu);
         
         // TODO sometimes overing over a text doesnt change the color of the button
         if (intersects.length > 0){
             const object = intersects[0].object;
             
+            if (object.name == "FramesCounter"){ // if its the frames counter
+                return;
+            }
+
             let currentButton = object;
             if (object.button){ // its a text
                 currentButton = object.button; // get the button
@@ -971,6 +1025,13 @@ const onMouseMove = (event) => {
 
 
     }else{ // game
+        
+        // check if its paused
+        const intersectsPause = raycaster.intersectObject(sceneElements.pauseBlurPlane);
+        if (intersectsPause.length > 0){
+            return;
+        }
+
         const intersects = raycaster.intersectObjects(sceneElements.tiles);
         // change color of the closest object intersecting the raycaster
         if (intersects.length > 0) {
@@ -1068,6 +1129,11 @@ const onMouseClick = (event) => {
 
     }else{ // game
         
+        // check if its paused
+        const intersectsPause = raycaster.intersectObject(sceneElements.pauseBlurPlane);
+        if (intersectsPause.length > 0){
+            return;
+        }
 
         // check if the user clicked on a tower on the map
         const intersectsTower = raycaster.intersectObjects(sceneElements.towers);
@@ -1174,20 +1240,18 @@ const onMouseClick = (event) => {
 
 window.addEventListener('mousemove', onMouseMove);
 
-window.addEventListener('touchstart', onMouseClick); // touch screen (mobile)
 window.addEventListener('click', onMouseClick); // left click
 window.addEventListener('contextmenu', onMouseClick); // right click
+//window.addEventListener('touchstart', onMouseClick); // touch screen (mobile)
 
 
-let framesText = null;
 function newFramesCounter(frames){
 
     // remove the old frames counter if it exists
-    /* if (framesText != null){
-        sceneElements.sceneGraph.remove(framesText);
-        framesText = null;
-    } */
-
+    let oldFramesCounter = sceneElements.sceneGraph.getObjectByName("FramesCounter");
+    if (oldFramesCounter != null){
+        sceneElements.sceneGraph.remove(oldFramesCounter);
+    }
 
     // new frames counter
     const framesLoader = new THREE.FontLoader();
@@ -1205,8 +1269,7 @@ function newFramesCounter(frames){
         });
         
         const framesMaterial = new THREE.MeshPhongMaterial({ color: 'rgb(0, 0, 0)' });
-        framesText = new THREE.Mesh(framesGeometry, framesMaterial);
-        //console.log("cccccccccc", framesText)
+        let framesText = new THREE.Mesh(framesGeometry, framesMaterial);
         
         framesText.position.set(-5, 3, 0.3);
 
@@ -1214,11 +1277,9 @@ function newFramesCounter(frames){
         
         sceneElements.sceneGraph.add(framesText);
         sceneElements.startMenu.push(framesText);
+        framesText.lookAt(sceneElements.camera.position);
     });
 
-    //console.log("bbbbbbbbbbb", framesText);
-
-    //return framesText;
 }
 
 
@@ -1236,17 +1297,13 @@ const STARTGAME = 0;
 function computeFrame(time) {
 
     frames++;
-    if (frames % 100 == 0){
+    if (frames % 100 == 0 && sceneElements.isGamePaused == false){
         console.log("frames: " + frames/time*1000);
         console.log("Coins: " + sceneElements.playerCoins);
+        newFramesCounter(Math.round(frames/time*1000));
     }
 
-    //console.log("frames: " + framesText);
-    //newFramesCounter(frames);
-    //console.log("aaaaaaaaaaaas", framesText);
-    if (framesText != null){
-    framesText.lookAt(sceneElements.camera.position);
-    }
+    
 
     if (sceneElements.isStartMenuOn == true){
 
@@ -1263,6 +1320,59 @@ function computeFrame(time) {
         light.translateX(delta);
 
     } else {
+
+        if (sceneElements.isGamePaused == true){
+
+
+            // ***************************************** //
+            // Add a translucid plane to "blur" the screen
+            // ***************************************** //
+
+            let pausePlane = sceneElements.pauseBlurPlane;
+
+            // the pause plane is to "blur" the game, so it is always in front of the camera
+            // we calculate the position of the center of the screen (it may vary because of the orbit controls)
+            // and make a vector from the camera to that point
+            // so if we place the plane in that vector it will always be in front of the camera dispite of where it is or where it is looking
+
+            let cameraPosition = sceneElements.camera.position;
+
+            const screenCenter = new THREE.Vector3(0, 0, -1); // Assuming the camera is looking along the negative z-axis
+            screenCenter.unproject(sceneElements.camera); // Convert the screen center to world coordinates
+
+            const direction = new THREE.Vector3();
+            direction.subVectors(screenCenter, cameraPosition).normalize();
+
+            const distanceFromCamera = 1; // Adjust this value based on how far you want the plane from the camera
+            const planePosition = cameraPosition.clone().add(direction.multiplyScalar(distanceFromCamera));
+            
+            pausePlane.position.set(planePosition.x, planePosition.y, planePosition.z);
+            pausePlane.lookAt(cameraPosition);
+
+            sceneElements.sceneGraph.add(pausePlane);
+            sceneElements.control.enabled = false;
+
+
+            
+
+            // Rendering
+            helper.render(sceneElements);
+    
+            // NEW --- Update control of the camera
+            sceneElements.control.update();
+
+            // Call for the next frame
+            requestAnimationFrame(computeFrame);
+            return;
+        }
+
+        // remove the pause plane if it exists
+        if (sceneElements.sceneGraph.getObjectByName("pauseBlurPlane") != null){
+            sceneElements.sceneGraph.remove(sceneElements.sceneGraph.getObjectByName("pauseBlurPlane"));
+            sceneElements.control.enabled = true;
+        }
+
+
 
         // spawning enemies
         if (TEST_assert_one_enemy_only === 0 & (time % 2000 < 20) & (time % 5000 >= 20)) { // every 2 seconds
@@ -1398,11 +1508,13 @@ function computeFrame(time) {
 
         // sun and moon rotation
         const sunAndMoon = sceneElements.sceneGraph.getObjectByName("sunAndMoon");
-        sunAndMoon.rotation.z += Math.PI/1440;
+        sunAndMoon.rotation.z += Math.PI/360; // TODO change this to 1440
+        sunAndMoon.rotation.z %= Math.PI*2;
+        //console.log("sun ", sunAndMoon.rotation.z)
+        //console.log("cenas ", sunAndMoon.rotation.z.toFixed(2), ( 2*Math.PI- Math.PI/4 ).toFixed(2), ( Math.PI/4 ).toFixed(2) )
 
-        // attempt on toggling torches automatically based on sun position // TODO 
-        //console.log("sun", sunAndMoon.rotation.z.toFixed(2), ( Math.PI - Math.PI/4 ).toFixed(2), ( Math.PI/4 ).toFixed(2) );
-        /* if (sunAndMoon.rotation.z.toFixed(2) % ( - Math.PI/4 ).toFixed(2) == 0){ // sunset (more or less)
+        if (sunAndMoon.rotation.z.toFixed(2) == ( Math.PI/3 ).toFixed(2)){ // sunset (more or less)
+            // TODO change torches that come next (currently is just the ones on the screen)
             for (let i = 0; i < sceneElements.torches.length; i++) {
                 let torch = sceneElements.torches[i];
 
@@ -1413,7 +1525,7 @@ function computeFrame(time) {
                 torchlight.intensity = 1;
             }
         } 
-        if (sunAndMoon.rotation.z.toFixed(2) % ( Math.PI + Math.PI/4 ).toFixed(2) == 0){ // sunrise (more or less)
+        if (sunAndMoon.rotation.z.toFixed(2) == ( 2*Math.PI - Math.PI/3 ).toFixed(2)){ // sunrise (more or less)
             for (let i = 0; i < sceneElements.torches.length; i++) {
                 let torch = sceneElements.torches[i];
                 
@@ -1424,11 +1536,8 @@ function computeFrame(time) {
                 torchlight.intensity = 0;
             }
 
-        } */
+        }
 
-        let night = Math.PI;
-        let day = 0;
-        //sunAndMoon.rotation.z = night;
 
         
     }
