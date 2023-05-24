@@ -1343,7 +1343,7 @@ function computeFrame(time) {
             const direction = new THREE.Vector3();
             direction.subVectors(screenCenter, cameraPosition).normalize();
 
-            const distanceFromCamera = 1; // Adjust this value based on how far you want the plane from the camera
+            const distanceFromCamera = 1;
             const planePosition = cameraPosition.clone().add(direction.multiplyScalar(distanceFromCamera));
             
             pausePlane.position.set(planePosition.x, planePosition.y, planePosition.z);
@@ -1514,7 +1514,6 @@ function computeFrame(time) {
         //console.log("cenas ", sunAndMoon.rotation.z.toFixed(2), ( 2*Math.PI- Math.PI/4 ).toFixed(2), ( Math.PI/4 ).toFixed(2) )
 
         if (sunAndMoon.rotation.z.toFixed(2) == ( Math.PI/3 ).toFixed(2)){ // sunset (more or less)
-            // TODO change torches that come next (currently is just the ones on the screen)
             for (let i = 0; i < sceneElements.torches.length; i++) {
                 let torch = sceneElements.torches[i];
 
@@ -1524,6 +1523,7 @@ function computeFrame(time) {
                 let torchlight = torch.children[2];
                 torchlight.intensity = 1;
             }
+            sceneElements.lightUp = true;
         } 
         if (sunAndMoon.rotation.z.toFixed(2) == ( 2*Math.PI - Math.PI/3 ).toFixed(2)){ // sunrise (more or less)
             for (let i = 0; i < sceneElements.torches.length; i++) {
@@ -1535,6 +1535,7 @@ function computeFrame(time) {
                 let torchlight = torch.children[2];
                 torchlight.intensity = 0;
             }
+            sceneElements.lightUp = false;
 
         }
 
