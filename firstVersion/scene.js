@@ -941,10 +941,22 @@ function load3DObjects(sceneGraph) {
 
 
 
+    // ***************************************** //
+    // Add a wooden board to the pause menu
+    // ***************************************** //
+
+    const woodenBoardGeometry = new THREE.BoxGeometry(1, 1, 0.1);
+    const woodenBoardMaterial = new THREE.MeshPhongMaterial({
+        color: 0x8B4513
+    });
+    const woodenBoardObject = new THREE.Mesh(woodenBoardGeometry, woodenBoardMaterial);
 
     // ************************** //
     // create a pause plane
     // ************************** //
+    
+    //const pauseGroup = new THREE.Group();    
+    //pauseGroup.add(pausePlane)
 
     const pauseBlurPlane = new THREE.Mesh(
         new THREE.PlaneGeometry( 2, 2, 2, 2 ),
@@ -1305,7 +1317,7 @@ function computeFrame(time) {
 
     
 
-    if (sceneElements.isStartMenuOn == true){
+    if (sceneElements.isStartMenuOn == true){ // start menu
 
         // THE SPOT LIGHT
         const light = sceneElements.sceneGraph.getObjectByName("light");
@@ -1319,7 +1331,13 @@ function computeFrame(time) {
         }
         light.translateX(delta);
 
-    } else {
+        // turn frames counter to the camera
+        let framesCounter = sceneElements.sceneGraph.getObjectByName("FramesCounter");
+        if (framesCounter != null){
+            framesCounter.lookAt(sceneElements.camera.position);
+        }
+
+    } else { // game
 
         if (sceneElements.isGamePaused == true){
 
@@ -1540,6 +1558,12 @@ function computeFrame(time) {
         }
 
 
+
+        // turn frames counter to the camera
+        let framesCounter = sceneElements.sceneGraph.getObjectByName("FramesCounter");
+        if (framesCounter != null){
+            framesCounter.lookAt(sceneElements.camera.position);
+        }
         
     }
 

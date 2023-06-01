@@ -1,4 +1,4 @@
-# Tower Defense Game - Temporary Repository
+# Tower Defense Game
 
 ## Final Project of ICG 
 
@@ -6,7 +6,7 @@
 
 ### features
 	- starting menu with link to github
-	- pause menu 	
+	- pause menu with controls helper toggleble with esc key
 	- orbit controls
 	- select towers to buy
 	- add towers to chosen tiles
@@ -21,7 +21,7 @@
 
 
 ### stuff to add
-	1 - add controls helper to pause menu
+	1 - add controls helper
 	2 - add camera pov to towers
 	3 - add more realistic materials to sun, moon and table
 	4 - add farol light to towers
