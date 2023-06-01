@@ -1526,7 +1526,7 @@ function computeFrame(time) {
 
         // sun and moon rotation
         const sunAndMoon = sceneElements.sceneGraph.getObjectByName("sunAndMoon");
-        sunAndMoon.rotation.z += Math.PI/360; // TODO change this to 1440
+        sunAndMoon.rotation.z += Math.PI/1440; // TODO change this to 1440
         sunAndMoon.rotation.z %= Math.PI*2;
         //console.log("sun ", sunAndMoon.rotation.z)
         //console.log("cenas ", sunAndMoon.rotation.z.toFixed(2), ( 2*Math.PI- Math.PI/4 ).toFixed(2), ( Math.PI/4 ).toFixed(2) )
